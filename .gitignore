@@ -1,0 +1,7 @@
+venv/
+
+pycache/
+
+app.db
+
+.env

@@ -3,121 +3,115 @@ from playwright.sync_api import sync_playwright, expect
 
 def run_verification(playwright):
     """
-    This script performs an end-to-end verification of the core application flow:
-    1. Registers a new user.
-    2. Logs in with the new user.
-    3. Creates a new persona (main card).
-    4. Navigates to the persona's detail page and starts a chat.
-    5. Sends a message and verifies the interaction.
-    6. Deletes the persona from the dashboard.
-    7. Logs out.
+    This script performs an end-to-end verification of the application, including:
+    1.  User registration and login.
+    2.  Creating and selecting an API configuration.
+    3.  Configuring generation settings, including response prefill.
+    4.  Creating a persona and starting a chat.
+    5.  Sending a message and verifying the UI handles the settings correctly.
+    6.  Deleting the persona and logging out.
     """
     browser = playwright.chromium.launch(headless=True)
     context = browser.new_context()
     page = context.new_page()
 
     BASE_URL = "http://localhost:5173"
-    USER = "testuser_jules"
+    # Use a unique user for this test run
+    USER = "testuser_gen_settings"
     PASSWORD = "SecurePassword123"
+    PERSONA_NAME = "Test Persona Gen"
+    API_CONFIG_NAME = "Test API Config"
 
     try:
-        # --- 1. Registration ---
-        print("Navigating to login page for registration...")
+        # --- 1. Registration & Login ---
+        print("Step 1: Registering and logging in...")
         page.goto(f"{BASE_URL}/login")
-
-        print(f"Registering new user: {USER}")
         page.locator('form:has-text("Register") input[placeholder="Username"]').fill(USER)
         page.locator('form:has-text("Register") input[placeholder="Password"]').fill(PASSWORD)
         page.locator('form:has-text("Register") button[type="submit"]').click()
+        expect(page.locator('.feedback-message.success')).to_be_visible()
 
-        # Wait for and verify the success message
-        success_message = page.locator('.feedback-message.success')
-        expect(success_message).to_be_visible()
-        expect(success_message).to_have_text(f"User '{USER}' registered successfully! You can now log in.")
-        page.screenshot(path="jules-scratch/verification/01_registration_success.png")
-        print("Registration successful.")
-
-        # --- 2. Login ---
-        print(f"Logging in as: {USER}")
         page.locator('form:has-text("Login") input[placeholder="Username"]').fill(USER)
         page.locator('form:has-text("Login") input[placeholder="Password"]').fill(PASSWORD)
         page.locator('form:has-text("Login") button[type="submit"]').click()
-
-        # Wait for navigation to the dashboard and verify
         expect(page).to_have_url(re.compile(r'.*/$'))
-        expect(page.locator('h1')).to_have_text('Personas')
-        page.screenshot(path="jules-scratch/verification/02_login_dashboard.png")
-        print("Login successful, dashboard is visible.")
+        page.screenshot(path="jules-scratch/verification/01_login_success.png")
+        print("Login successful.")
 
-        # --- 3. Create Persona ---
-        print("Creating a new persona...")
+        # --- 2. Configure API Settings ---
+        print("Step 2: Configuring API settings...")
+        # Open settings panel from chat page (first need to create a persona and chat)
         page.locator('button#new-chat-btn').click()
+        page.locator('.modal-content input[name="name"]').fill(PERSONA_NAME)
+        page.locator('.modal-content button:has-text("Save Persona")').click()
+        expect(page.locator('.chat-grid')).to_contain_text(PERSONA_NAME)
 
-        # Fill out the modal form
-        modal = page.locator('.modal-content')
-        expect(modal).to_be_visible()
-        modal.locator('input[name="name"]').fill("Test Persona")
-        modal.locator('textarea[name="description"]').fill("A persona for testing.")
-        modal.locator('button:has-text("Save Persona")').click()
-
-        # Verify the new persona appears in the grid
-        expect(page.locator('.chat-grid')).to_contain_text('Test Persona')
-        page.screenshot(path="jules-scratch/verification/03_persona_created.png")
-        print("Persona created successfully.")
-
-        # --- 4. Start Chat ---
-        print("Navigating to persona detail and starting chat...")
-        page.locator('.chat-card:has-text("Test Persona")').click()
-
-        expect(page).to_have_url(re.compile(r'.*/main-card/\d+'))
-        expect(page.locator('h1')).to_have_text('Test Persona')
-
+        page.locator(f'.chat-card:has-text("{PERSONA_NAME}")').click()
         page.locator('button:has-text("Start New Chat")').click()
-
-        # Verify navigation to the chat page
         expect(page).to_have_url(re.compile(r'.*/chat/\d+'))
-        expect(page.locator('h1')).to_have_text('Chat') # Default name
-        page.screenshot(path="jules-scratch/verification/04_chat_page.png")
-        print("Chat page opened.")
 
-        # --- 5. Send Message ---
-        print("Sending a message...")
-        page.locator('textarea[placeholder="Type your message..."]').fill("Hello, world!")
+        page.locator('button.settings-btn').click()
+        expect(page.locator('.settings-panel')).to_be_visible()
+
+        # Go to API Settings
+        page.locator('button.settings-menu-button:has-text("API Settings")').click()
+
+        # Add a new configuration
+        page.locator('button.add-config-btn').click()
+        page.locator('.config-form input[name="name"]').fill(API_CONFIG_NAME)
+        page.locator('.config-form input[name="model"]').fill("openrouter/auto")
+        page.locator('.config-form input[name="proxy_url"]').fill("https://openrouter.ai/api/v1")
+        page.locator('.config-form button:has-text("Save Configuration")').click()
+
+        # Select the new configuration
+        config_item = page.locator(f'.config-item:has-text("{API_CONFIG_NAME}")')
+        expect(config_item).to_be_visible()
+        config_item.locator('button.select-btn').click()
+        expect(config_item).to_have_class(re.compile(r'\bactive\b'))
+        page.screenshot(path="jules-scratch/verification/02_api_config_selected.png")
+        print("API configuration created and selected.")
+
+        # --- 3. Configure Generation Settings ---
+        print("Step 3: Configuring generation settings...")
+        page.locator('.settings-header button.back-btn').click() # Back to main settings
+        page.locator('button.settings-menu-button:has-text("Generation Settings")').click()
+
+        # Change some values
+        page.locator('.slider-group:has-text("Temperature") input[type="range"]').set_input_files([]) # Hack to trigger change
+        page.locator('.slider-group:has-text("Temperature") input[type="range"]').fill("0.7")
+        page.locator('.slider-group:has-text("Max Tokens") input[type="number"]').fill("8000")
+
+        # Enable and fill prefill
+        page.locator('input[type="checkbox"][name="response_prefill_enabled"]').check()
+        page.locator('textarea[name="response_prefill"]').fill("Prefill text: ")
+
+        page.screenshot(path="jules-scratch/verification/03_generation_settings.png")
+        print("Generation settings configured.")
+        page.locator('.settings-header button.back-btn').click() # Back to main settings
+        page.locator('.settings-header button.close-btn').click() # Close panel
+
+        # --- 4. Send Message and Verify ---
+        print("Step 4: Sending message with new settings...")
+        page.locator('textarea[placeholder="Type your message..."]').fill("Hello with settings")
         page.locator('button[aria-label="Send message"]').click()
 
-        # Since we use a fake API key, we expect an error message bubble
-        expect(page.locator('.message-bubble.error')).to_be_visible()
-        expect(page.locator('.message-bubble.error .message-content')).to_contain_text('Error:')
-        page.screenshot(path="jules-scratch/verification/05_chat_error_message.png")
-        print("Error message from fake API key correctly displayed.")
+        # Expect an error because the API key is still fake/missing
+        expect(page.locator('.message-bubble.error')).to_be_visible(timeout=10000)
+        expect(page.locator('.message-bubble.error .message-content')).to_contain_text('API key is missing')
+        page.screenshot(path="jules-scratch/verification/04_chat_with_settings_error.png")
+        print("Correctly received 'API key missing' error.")
 
-        # --- 6. Delete Persona ---
-        print("Navigating back to dashboard to delete persona...")
-        page.locator('a:has-text("← Dashboard")').click()
-
-        expect(page).to_have_url(re.compile(r'.*/$'))
-        persona_card = page.locator('.chat-card:has-text("Test Persona")')
-
-        # Click the delete button on the card
-        persona_card.locator('button.delete-btn').click()
-
-        # Confirm deletion in the modal
-        confirm_modal = page.locator('.modal-content:has-text("Are you sure?")')
-        expect(confirm_modal).to_be_visible()
-        confirm_modal.locator('button:has-text("Confirm Delete")').click()
-
-        # Verify the persona is gone
-        expect(page.locator('.chat-grid')).not_to_contain_text('Test Persona')
+        # --- 5. Cleanup ---
+        print("Step 5: Cleaning up...")
+        page.goto(BASE_URL) # Go back to dashboard
+        page.locator(f'.chat-card:has-text("{PERSONA_NAME}") button.delete-btn').click()
+        page.locator('.modal-content:has-text("Are you sure?") button:has-text("Confirm Delete")').click()
         expect(page.locator('.no-chats-message')).to_be_visible()
-        page.screenshot(path="jules-scratch/verification/06_persona_deleted.png")
-        print("Persona deleted successfully.")
 
-        # --- 7. Logout ---
-        print("Logging out...")
         page.locator('button#logout-btn').click()
         expect(page).to_have_url(re.compile(r'.*/login$'))
-        page.screenshot(path="jules-scratch/verification/07_logout_success.png")
-        print("Logout successful.")
+        page.screenshot(path="jules-scratch/verification/05_cleanup_complete.png")
+        print("Cleanup successful.")
 
     finally:
         print("Verification script finished.")

@@ -184,6 +184,10 @@ async def get_chat_completion(db: AsyncSession, chat: models.Chat, request: sche
     api_messages = [{"role": "system", "content": main_card.description}] if main_card.description else []
     api_messages.extend(initial_history)
     api_messages.extend(current_history)
+
+    # Handle response_prefill by adding it as the last assistant message
+    if request.response_prefill:
+        api_messages.append({"role": "assistant", "content": request.response_prefill})
     
     # Since model and base_url are now required by the schema, we can use them directly.
     api_key = request.api_key or os.getenv("OPENROUTER_API_KEY")
@@ -199,9 +203,12 @@ async def get_chat_completion(db: AsyncSession, chat: models.Chat, request: sche
         "X-Title": "Area51 Chat App"
     }
     
-    # Build the payload, excluding any null values. No fallback for 'model' is needed
-    # as it is now a required field in the request schema.
-    payload = {k: v for k, v in request.model_dump().items() if v is not None and k not in ['api_key', 'base_url', 'message']}
+    # Build the payload, excluding any null values and fields handled separately.
+    # The context_window parameter is passed through, assuming the proxy/model API supports it.
+    payload = {
+        k: v for k, v in request.model_dump().items()
+        if v is not None and k not in ['api_key', 'base_url', 'message', 'response_prefill']
+    }
     payload["messages"] = api_messages
     
     # Define more robust transport settings for production
@@ -213,10 +220,16 @@ async def get_chat_completion(db: AsyncSession, chat: models.Chat, request: sche
         async with httpx.AsyncClient(transport=transport, timeout=timeout) as client:
             response = await client.post(api_url, headers=headers, json=payload)
             response.raise_for_status()
-            response_message = response.json()['choices'][0]['message']['content']
+            response_message_content = response.json()['choices'][0]['message']['content']
 
-        # On success, append both user and assistant messages to history
-        current_history.append({"role": "assistant", "content": response_message})
+        # Combine prefill with the model's response if it was used
+        if request.response_prefill:
+            final_message = request.response_prefill + response_message_content
+        else:
+            final_message = response_message_content
+
+        # On success, append the final assistant message to history
+        current_history.append({"role": "assistant", "content": final_message})
         chat.history = current_history
         await db.commit()
         await db.refresh(chat)

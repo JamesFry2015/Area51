@@ -23,6 +23,17 @@ const ChatPage = () => {
     model: '',
     baseUrl: ''
   });
+  const [generationSettings, setGenerationSettings] = useState({
+    temperature: 1.0,
+    max_tokens: 10000,
+    context_window: 2000000,
+    top_k: 0,
+    top_p: 1.0,
+    repetition_penalty: 1.0,
+    frequency_penalty: 0.0,
+    response_prefill_enabled: false,
+    response_prefill: '',
+  });
 
   const messagesEndRef = useRef(null);
 
@@ -76,7 +87,12 @@ const ChatPage = () => {
         message: messageContent,
         model: advancedSettings.model,
         base_url: advancedSettings.baseUrl,
-        api_key: advancedSettings.apiKey || null, // api_key can still be optional
+        api_key: advancedSettings.apiKey || null,
+        // --- NEW: Add generation settings to the request ---
+        ...generationSettings,
+        response_prefill: generationSettings.response_prefill_enabled
+          ? generationSettings.response_prefill
+          : null,
       };
 
       const response = await apiClient.post(`/chats/${chatId}/messages`, requestBody);
@@ -126,6 +142,8 @@ const ChatPage = () => {
         onClose={() => setIsSettingsOpen(false)}
         settings={advancedSettings}
         onSettingChange={setAdvancedSettings}
+        generationSettings={generationSettings}
+        onGenerationSettingsChange={setGenerationSettings}
       />
     </div>
   );

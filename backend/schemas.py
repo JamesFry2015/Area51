@@ -1,20 +1,24 @@
 from pydantic import BaseModel
 from typing import List, Optional
 
-# --- Message & Completion Schemas (no change) ---
+# --- Message & Completion Schemas ---
 class Message(BaseModel):
     role: str
     content: str
+
 class ChatCompletionRequest(BaseModel):
     message: str
     model: str
     base_url: str
     api_key: Optional[str] = None
     temperature: Optional[float] = 1.0
+    max_tokens: Optional[int] = None
+    context_window: Optional[int] = None
     top_p: Optional[float] = 1.0
     top_k: Optional[int] = -1
     repetition_penalty: Optional[float] = 1.0
     frequency_penalty: Optional[float] = 0.0
+    response_prefill: Optional[str] = None
 
 # --- Chat & MainCard Schemas (no change) ---
 class ChatBase(BaseModel): pass

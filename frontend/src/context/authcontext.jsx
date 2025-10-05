@@ -1,22 +1,41 @@
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import apiClient from '../api'; // Import apiClient to set headers dynamically
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  // We check local storage to see if a token exists from a previous session.
-  const [token, setToken] = useState(localStorage.getItem('authToken'));
+  const [tokenData, setTokenData] = useState(() => {
+    try {
+      const storedToken = localStorage.getItem('tokenData');
+      return storedToken ? JSON.parse(storedToken) : null;
+    } catch (error) {
+      return null;
+    }
+  });
 
-  const login = (newToken) => {
-    localStorage.setItem('authToken', newToken);
-    setToken(newToken);
+  useEffect(() => {
+    const updateApiClientHeaders = (data) => {
+      if (data?.access_token && data?.token_type) {
+        const authHeader = `${data.token_type} ${data.access_token}`;
+        apiClient.defaults.headers.common['Authorization'] = authHeader;
+      } else {
+        delete apiClient.defaults.headers.common['Authorization'];
+      }
+    };
+    updateApiClientHeaders(tokenData);
+  }, [tokenData]);
+
+  const login = (newTokenData) => {
+    localStorage.setItem('tokenData', JSON.stringify(newTokenData));
+    setTokenData(newTokenData);
   };
 
   const logout = () => {
-    localStorage.removeItem('authToken');
-    setToken(null);
+    localStorage.removeItem('tokenData');
+    setTokenData(null);
   };
 
-  const isAuthenticated = !!token;
+  const isAuthenticated = !!tokenData?.access_token;
 
   return (
     <AuthContext.Provider value={{ isAuthenticated, login, logout }}>
@@ -25,7 +44,6 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-// This is a custom hook that our components can use to access the auth state.
 export const useAuth = () => {
   return useContext(AuthContext);
 };

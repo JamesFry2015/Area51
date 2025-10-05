@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, ForeignKey, Text, JSON
 from sqlalchemy.orm import relationship
 
 from .database import Base
@@ -26,7 +26,7 @@ class MainCard(Base):
 class Chat(Base):
     __tablename__ = "chats"
     id = Column(Integer, primary_key=True, index=True)
-    history_json = Column(Text, default='[]')
+    history = Column(JSON, default=[])
     main_card_id = Column(Integer, ForeignKey("main_cards.id"))
     main_card = relationship("MainCard", back_populates="chats")
 

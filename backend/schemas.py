@@ -20,6 +20,13 @@ class MainCardBase(BaseModel):
     name: str; description: Optional[str] = None
     initial_message: Optional[str] = None; example_response: Optional[str] = None
 class MainCardCreate(MainCardBase): pass
+
+class MainCardUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    initial_message: Optional[str] = None
+    example_response: Optional[str] = None
+
 class MainCardSchema(MainCardBase):
     id: int; owner_id: int; chats: List[ChatSchema] = []
     class Config: from_attributes = True
@@ -29,17 +36,22 @@ class ApiConfigBase(BaseModel):
     name: str
     model: str
     proxy_url: str
+    custom_prompt: Optional[str] = None
+
+class ApiConfigCreate(ApiConfigBase):
+    api_key: Optional[str] = None
+
+class ApiConfigUpdate(BaseModel):
+    name: Optional[str] = None
+    model: Optional[str] = None
+    proxy_url: Optional[str] = None
     api_key: Optional[str] = None
     custom_prompt: Optional[str] = None
-class ApiConfigCreate(ApiConfigBase):
-    pass
-# --- NEW: Schema for updating an existing configuration ---
-class ApiConfigUpdate(ApiConfigBase):
-    pass
+
 class ApiConfigSchema(ApiConfigBase):
     id: int
     owner_id: int
-    api_key: str = "********" 
+    # api_key is intentionally omitted from this response schema for security
     class Config: from_attributes = True
 
 # --- User Schemas ---

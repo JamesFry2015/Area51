@@ -2,8 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import apiClient from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 // --- FIX: Updated the import statements to use the new component names ---
-import MainCard from '../components/MainCard.jsx';
-import MainCardModal from '../components/MainCardModal.jsx';
+import MainCard from '../components/maincard.jsx';
+import MainCardModal from '../components/maincardmodal.jsx';
 import './DashboardPage.css';
 
 const DashboardPage = () => {
@@ -49,7 +49,7 @@ const DashboardPage = () => {
     try {
       const { id, ...payload } = dataToSave;
       if (id) {
-        // We will implement PATCH later
+        await apiClient.patch(`/main-cards/${id}`, payload);
       } else {
         await apiClient.post('/main-cards/', payload);
       }
@@ -57,6 +57,7 @@ const DashboardPage = () => {
       fetchMainCards();
     } catch (err) {
       console.error("Failed to save main card:", err);
+      // Optionally, set an error state to show feedback to the user
     }
   };
   
@@ -66,10 +67,17 @@ const DashboardPage = () => {
   }
 
   const confirmDelete = async () => {
-      console.log("Deleting card:", cardToDelete)
+    if (!cardToDelete) return;
+    try {
+      await apiClient.delete(`/main-cards/${cardToDelete}`);
+      fetchMainCards(); // Refresh the list after deletion
+    } catch (err) {
+      console.error("Failed to delete main card:", err);
+      // Optionally, set an error state
+    } finally {
       setShowDeleteConfirm(false);
       setCardToDelete(null);
-      fetchMainCards();
+    }
   }
 
   if (isLoading) return <div>Loading...</div>;

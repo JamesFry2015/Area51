@@ -12,10 +12,16 @@ from .database import get_db
 
 # --- Security Configuration ---
 
+import os
+
+# --- Security Configuration ---
+
 # This is a secret key used to sign the JWTs.
-# In a real production app, this should be a long, random string
-# and stored securely (e.g., in an environment variable).
-SECRET_KEY = "your-super-secret-key-that-is-long-and-random"
+# It's loaded from an environment variable for security.
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise ValueError("No SECRET_KEY set for JWT signing. Please set the environment variable.")
+
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 

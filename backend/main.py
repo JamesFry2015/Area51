@@ -17,7 +17,21 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(lifespan=lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+
+# --- CORS Configuration ---
+# Define the list of allowed origins.
+# This should include your frontend's URL in production.
+origins = [
+    "http://localhost:5173",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=False,  # We are using token auth, not cookies
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
+)
 
 # --- User Endpoints ---
 @app.post("/users/", response_model=schemas.UserSchema)
@@ -37,7 +51,12 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.get("/users/me/", response_model=schemas.UserSchema)
-async def read_users_me(current_user: models.User = Depends(auth.get_current_user)): return current_user
+async def read_users_me(current_user: models.User = Depends(auth.get_current_user), db: AsyncSession = Depends(get_db)):
+    # This endpoint should return the full user profile with all relations
+    user_with_relations = await crud.get_user_by_username_with_relations(db, username=current_user.username)
+    if user_with_relations is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user_with_relations
 
 # --- MainCard Endpoints ---
 @app.post("/main-cards/", response_model=schemas.MainCardSchema)
@@ -54,6 +73,30 @@ async def read_main_card(main_card_id: int, current_user: models.User = Depends(
     if db_main_card is None:
         raise HTTPException(status_code=404, detail="Main Card not found")
     return db_main_card
+
+@app.patch("/main-cards/{main_card_id}", response_model=schemas.MainCardSchema)
+async def update_main_card(
+    main_card_id: int,
+    main_card_update: schemas.MainCardUpdate,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    db_main_card = await crud.get_main_card(db=db, main_card_id=main_card_id, user_id=current_user.id)
+    if db_main_card is None:
+        raise HTTPException(status_code=404, detail="Main Card not found")
+    return await crud.update_main_card(db=db, db_main_card=db_main_card, main_card_update=main_card_update)
+
+@app.delete("/main-cards/{main_card_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_main_card(
+    main_card_id: int,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    db_main_card = await crud.get_main_card(db=db, main_card_id=main_card_id, user_id=current_user.id)
+    if db_main_card is None:
+        raise HTTPException(status_code=404, detail="Main Card not found")
+    await crud.delete_main_card(db=db, db_main_card=db_main_card)
+    return {"ok": True}
 
 # --- API Configuration Endpoints ---
 @app.post("/api-configs/", response_model=schemas.ApiConfigSchema)
@@ -107,3 +150,14 @@ async def chat_completion(chat_id: int, request: schemas.ChatCompletionRequest, 
         raise HTTPException(status_code=404, detail="Chat not found")
     return await crud.get_chat_completion(db=db, chat=chat, request=request)
 
+@app.delete("/chats/{chat_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_chat(
+    chat_id: int,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    chat = await crud.get_chat(db, chat_id=chat_id, user_id=current_user.id)
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    await crud.delete_chat(db=db, chat=chat)
+    return {"ok": True}

@@ -4,7 +4,7 @@ import apiClient from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import MessageBubble from '../components/MessageBubble.jsx';
 import MessageInput from '../components/MessageInput.jsx';
-import SettingsPanel from '../components/SettingsPanel.jsx'; // Import the new component
+import SettingsPanel from '../components/settingspanel.jsx'; // Import the new component
 import './ChatPage.css';
 
 const ChatPage = () => {
@@ -56,6 +56,7 @@ const ChatPage = () => {
     const tempMessage = { role: 'user', content: messageContent };
     setChat(prevChat => ({ ...prevChat, history: [...prevChat.history, tempMessage] }));
     setIsSending(true);
+    setError(''); // Clear previous errors
 
     try {
       const requestBody = {
@@ -68,7 +69,14 @@ const ChatPage = () => {
       const response = await apiClient.post(`/chats/${chatId}/messages`, requestBody);
       setChat(response.data);
     } catch (err) {
-      setError('Failed to send message.');
+      const errorMessage = err.response?.data?.detail || 'An unknown error occurred.';
+      const errorBubble = {
+        role: 'assistant',
+        content: `Error: ${errorMessage}`,
+        type: 'error' // This will be used by MessageBubble to apply error styling
+      };
+      // Add the transient error message to the UI
+      setChat(prevChat => ({ ...prevChat, history: [...prevChat.history, errorBubble] }));
     } finally {
       setIsSending(false);
     }

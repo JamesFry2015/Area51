@@ -4,8 +4,8 @@ import './MessageBubble.css'; // We will create this CSS file next
 const MessageBubble = ({ message }) => {
   const isUser = message.role === 'user';
   
-  // A simple way to check if the content is an error message
-  const isError = message.content.toLowerCase().startsWith('error:');
+  // Check for a specific message type for more robust error handling
+  const isError = message.type === 'error';
 
   return (
     <div className={`message-bubble ${isUser ? 'user' : 'assistant'} ${isError ? 'error' : ''}`}>

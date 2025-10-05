@@ -20,16 +20,35 @@ class ChatCompletionRequest(BaseModel):
     frequency_penalty: Optional[float] = 0.0
     response_prefill: Optional[str] = None
 
-# --- Chat & MainCard Schemas (no change) ---
-class ChatBase(BaseModel): pass
-class ChatCreate(ChatBase): pass
+# --- Chat & MainCard Schemas ---
+class ChatBase(BaseModel):
+    name: str
+    system_prompt: Optional[str] = None
+    chat_memory: Optional[str] = None
+
+class ChatCreate(ChatBase):
+    pass
+
+class ChatUpdate(BaseModel):
+    name: Optional[str] = None
+    system_prompt: Optional[str] = None
+    chat_memory: Optional[str] = None
+
 class ChatSchema(ChatBase):
-    id: int; main_card_id: int; history: List[Message]
-    class Config: from_attributes = True
+    id: int
+    main_card_id: int
+    history: List[Message]
+    class Config:
+        from_attributes = True
+
 class MainCardBase(BaseModel):
-    name: str; description: Optional[str] = None
-    initial_message: Optional[str] = None; example_response: Optional[str] = None
-class MainCardCreate(MainCardBase): pass
+    name: str
+    description: Optional[str] = None
+    initial_message: Optional[str] = None
+    example_response: Optional[str] = None
+
+class MainCardCreate(MainCardBase):
+    pass
 
 class MainCardUpdate(BaseModel):
     name: Optional[str] = None
@@ -38,8 +57,11 @@ class MainCardUpdate(BaseModel):
     example_response: Optional[str] = None
 
 class MainCardSchema(MainCardBase):
-    id: int; owner_id: int; chats: List[ChatSchema] = []
-    class Config: from_attributes = True
+    id: int
+    owner_id: int
+    chats: List[ChatSchema] = []
+    class Config:
+        from_attributes = True
 
 # --- API Configuration Schemas ---
 class ApiConfigBase(BaseModel):
@@ -62,16 +84,19 @@ class ApiConfigSchema(ApiConfigBase):
     id: int
     owner_id: int
     # api_key is intentionally omitted from this response schema for security
-    class Config: from_attributes = True
+    class Config:
+        from_attributes = True
 
 # --- User Schemas ---
 class UserBase(BaseModel):
     username: str
+
 class UserCreate(UserBase):
     password: str
+
 class UserSchema(UserBase):
     id: int
     main_cards: List[MainCardSchema] = []
     api_configs: List[ApiConfigSchema] = []
-    class Config: from_attributes = True
-
+    class Config:
+        from_attributes = True

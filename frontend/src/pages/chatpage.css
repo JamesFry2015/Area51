@@ -1,22 +1,10 @@
-/* --- FIX: Updated styles for a full-screen layout --- */
-
-/* The wrapper now simply provides the full viewport height and background */
-.chat-page-wrapper {
-  height: 100vh;
-  background-color: #121212;
-  /* We remove padding and flex centering to allow the child to expand */
-}
-
-/* The main container now expands to fill the wrapper completely */
 .chat-page-container {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  height: 100vh; /* Full viewport height */
   width: 100%;
-  /* No max-width, so it fills the screen */
   background-color: #1e1e1e;
   color: #e0e0e0;
-  /* Removing border, radius, and shadow for a seamless full-screen look */
   overflow: hidden; 
 }
 
@@ -41,11 +29,18 @@
   font-size: 1rem;
 }
 
-.chat-history {
+/* This wrapper will handle the scrolling and growing */
+.chat-history-wrapper {
   flex-grow: 1;
-  padding: 20px;
   overflow-y: auto;
+  padding: 20px;
+}
+
+/* The actual history content will be centered with a max-width for readability */
+.chat-history {
+  max-width: 900px;
+  width: 100%;
+  margin: 0 auto; /* Center the content */
   display: flex;
   flex-direction: column;
 }
-

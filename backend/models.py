@@ -26,7 +26,10 @@ class MainCard(Base):
 class Chat(Base):
     __tablename__ = "chats"
     id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, default="New Chat")
     history = Column(JSON, default=[])
+    system_prompt = Column(Text, nullable=True)
+    chat_memory = Column(Text, nullable=True)
     main_card_id = Column(Integer, ForeignKey("main_cards.id"))
     main_card = relationship("MainCard", back_populates="chats")
 

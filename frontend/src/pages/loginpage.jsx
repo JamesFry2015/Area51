@@ -47,7 +47,7 @@ const LoginPage = () => {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       });
       
-      login(response.data);
+      login(response.data.access_token);
       
       // --- FIX ---
       // Step 3: After a successful login, navigate to the dashboard page.

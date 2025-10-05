@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import apiClient from '../api.js';
-import './SettingsPanel.css';
+import './settingspanel.css';
 
 const SettingsPanel = ({
   isOpen,
@@ -8,7 +8,9 @@ const SettingsPanel = ({
   settings,
   onSettingChange,
   generationSettings,
-  onGenerationSettingsChange
+  onGenerationSettingsChange,
+  chatData,
+  onChatDataChange
 }) => {
   const [view, setView] = useState('main');
   const [apiConfigs, setApiConfigs] = useState([]);
@@ -62,7 +64,7 @@ const SettingsPanel = ({
     onSettingChange({
       model: config.model,
       baseUrl: config.proxy_url,
-      apiKey: '' // API key is not returned from server, user must re-enter if needed
+      apiKey: ''
     });
   };
 
@@ -74,6 +76,7 @@ const SettingsPanel = ({
       <div className="settings-content">
         <button className="settings-menu-button" onClick={() => setView('api')}>API Settings <span className="arrow">›</span></button>
         <button className="settings-menu-button" onClick={() => setView('generation')}>Generation Settings <span className="arrow">›</span></button>
+        <button className="settings-menu-button" onClick={() => setView('systemMemory')}>System & Chat Memory <span className="arrow">›</span></button>
       </div>
     </div>
   );
@@ -84,32 +87,37 @@ const SettingsPanel = ({
       <div className="settings-content">
         <div className="api-config-header"><h3>Your Configurations</h3><button className="add-config-btn" onClick={handleAddClick}>+ Add Configuration</button></div>
         <div className="api-config-list">
-          {apiConfigs.length > 0 ? apiConfigs.map(config => (
-            <div key={config.id} className={`config-item ${settings.model === config.model && settings.baseUrl === config.proxy_url ? 'active' : ''}`}>
-              <div className="config-item-header"><h4>{config.name}</h4><div className="config-item-actions"><button onClick={() => handleEditClick(config)}>Edit</button><button onClick={() => handleDeleteClick(config.id)}>Delete</button></div></div>
-              <div className="config-item-details"><span>{config.model}</span><span>{config.proxy_url}</span></div>
-              <button className="select-btn" onClick={() => handleSelectConfig(config)}>Select</button>
-            </div>
-          )) : <p>No configurations saved yet.</p>}
+          {apiConfigs.length > 0 ? apiConfigs.map(config => {
+            const isActive = settings.model === config.model && settings.baseUrl === config.proxy_url;
+            return (
+              <div key={config.id} className={`config-item ${isActive ? 'active' : ''}`}>
+                <div className="config-item-header"><h4>{config.name} {isActive && <span className="active-badge">Selected</span>}</h4><div className="config-item-actions"><button onClick={() => handleEditClick(config)}>Edit</button><button onClick={() => handleDeleteClick(config.id)}>Delete</button></div></div>
+                <div className="config-item-details"><span>{config.model}</span><span>{config.proxy_url}</span></div>
+                {!isActive && <button className="select-btn" onClick={() => handleSelectConfig(config)}>Select</button>}
+              </div>
+            )
+          }) : <p>No configurations saved yet.</p>}
         </div>
       </div>
     </div>
   );
 
-  const renderGenerationView = () => <GenerationSettingsForm onBack={() => setView('main')} settings={generationSettings} onSettingChange={onGenerationSettingsChange} />;
-  const renderAddApiView = () => <ConfigForm onSave={handleSaveApiConfig} onCancel={() => setView('api')} initialData={configToEdit} />;
+  const renderGenerationView = () => <GenerationSettingsForm onBack={() => setView('main')} onClose={onClose} settings={generationSettings} onSettingChange={onGenerationSettingsChange} />;
+  const renderSystemAndMemoryView = () => <SystemAndMemoryForm onBack={() => setView('main')} onClose={onClose} chatData={chatData} onChatDataChange={onChatDataChange} />;
+  const renderAddApiView = () => <ConfigForm onSave={handleSaveApiConfig} onCancel={() => setView('api')} onClose={onClose} initialData={configToEdit} />;
 
   const renderView = () => {
     switch(view) {
       case 'api': return renderApiView();
       case 'addApi': return renderAddApiView();
       case 'generation': return renderGenerationView();
+      case 'systemMemory': return renderSystemAndMemoryView();
       default: return renderMainView();
     }
   }
 
   return (
-    <div className="settings-backdrop" onClick={onClose}>
+    <div className="settings-backdrop">
       <div className="settings-panel" onClick={(e) => e.stopPropagation()}>
         {renderView()}
         {showDeleteConfirm && (
@@ -120,14 +128,33 @@ const SettingsPanel = ({
   );
 };
 
-const GenerationSettingsForm = ({ onBack, settings, onSettingChange }) => {
+const SystemAndMemoryForm = ({ onBack, onClose, chatData, onChatDataChange }) => {
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    onChatDataChange({ ...chatData, [name]: value });
+  };
+
+  return (
+    <div className="settings-content-wrapper">
+      <div className="settings-header"><button onClick={onBack} className="back-btn">‹</button><h2>System & Chat Memory</h2><button onClick={onClose} className="close-btn">×</button></div>
+      <div className="settings-content system-memory-form">
+        <label>System Prompt</label>
+        <textarea name="system_prompt" placeholder="Define the model's persona, instructions, and rules here..." rows="6" value={chatData?.system_prompt || ''} onChange={handleChange}></textarea>
+        <label>Chat Memory</label>
+        <textarea name="chat_memory" placeholder="Add long-term facts or context for the model to remember..." rows="6" value={chatData?.chat_memory || ''} onChange={handleChange}></textarea>
+      </div>
+    </div>
+  );
+};
+
+const GenerationSettingsForm = ({ onBack, onClose, settings, onSettingChange }) => {
   const handleSliderChange = (e) => {
     const { name, value } = e.target;
     onSettingChange({ ...settings, [name]: parseFloat(value) });
   };
   const handleNumberChange = (e) => {
     const { name, value } = e.target;
-    onSettingChange({ ...settings, [name]: parseInt(value, 10) });
+    onSettingChange({ ...settings, [name]: parseInt(value, 10) || 0 });
   };
   const handleTextChange = (e) => {
     const { name, value } = e.target;
@@ -140,7 +167,7 @@ const GenerationSettingsForm = ({ onBack, settings, onSettingChange }) => {
 
   return (
     <div className="settings-content-wrapper">
-      <div className="settings-header"><button onClick={onBack} className="back-btn">‹</button><h2>Generation Settings</h2></div>
+      <div className="settings-header"><button onClick={onBack} className="back-btn">‹</button><h2>Generation Settings</h2><button onClick={onClose} className="close-btn">×</button></div>
       <div className="settings-content generation-form">
         <SliderInput label="Temperature" name="temperature" value={settings.temperature} min={0} max={2} step={0.1} onChange={handleSliderChange} />
         <SliderInput label="Max Tokens" name="max_tokens" value={settings.max_tokens} min={0} max={10000} step={50} onChange={handleNumberChange} />
@@ -172,7 +199,7 @@ const SliderInput = ({ label, name, value, min, max, step, onChange }) => (
   </div>
 );
 
-const ConfigForm = ({ onSave, onCancel, initialData }) => {
+const ConfigForm = ({ onSave, onCancel, onClose, initialData }) => {
   const [config, setConfig] = useState({ name: '', model: '', proxy_url: '', api_key: '', custom_prompt: '' });
 
   useEffect(() => {
@@ -193,7 +220,11 @@ const ConfigForm = ({ onSave, onCancel, initialData }) => {
 
   return (
     <div className="settings-content-wrapper">
-      <div className="settings-header"><button onClick={onCancel} className="back-btn">‹</button><h2>{initialData ? 'Edit' : 'Add New'} Configuration</h2></div>
+      <div className="settings-header">
+        <button onClick={onCancel} className="back-btn">‹</button>
+        <h2>{initialData ? 'Edit' : 'Add New'} Configuration</h2>
+        <button onClick={onClose} className="close-btn">×</button>
+      </div>
       <div className="settings-content">
         <div className="config-form">
           <label>Configuration Name</label><input name="name" type="text" placeholder="My Custom Proxy" value={config.name} onChange={handleChange} />
@@ -209,4 +240,3 @@ const ConfigForm = ({ onSave, onCancel, initialData }) => {
 };
 
 export default SettingsPanel;
-

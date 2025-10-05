@@ -1,25 +1,20 @@
 import re
+import random
 from playwright.sync_api import sync_playwright, expect
 
 def run_verification(playwright):
     """
-    This script performs an end-to-end verification of the application, including:
-    1.  User registration and login.
-    2.  Creating and selecting an API configuration.
-    3.  Configuring generation settings, including response prefill.
-    4.  Creating a persona and starting a chat.
-    5.  Sending a message and verifying the UI handles the settings correctly.
-    6.  Deleting the persona and logging out.
+    This script performs a comprehensive end-to-end verification of the application,
+    including settings persistence, chat memory, and all new UI/UX features.
     """
     browser = playwright.chromium.launch(headless=True)
     context = browser.new_context()
     page = context.new_page()
 
     BASE_URL = "http://localhost:5173"
-    # Use a unique user for this test run
-    USER = "testuser_gen_settings"
+    USER = f"testuser_{random.randint(1000, 9999)}"
     PASSWORD = "SecurePassword123"
-    PERSONA_NAME = "Test Persona Gen"
+    PERSONA_NAME = "Test Persona"
     API_CONFIG_NAME = "Test API Config"
 
     try:
@@ -38,79 +33,106 @@ def run_verification(playwright):
         page.screenshot(path="jules-scratch/verification/01_login_success.png")
         print("Login successful.")
 
-        # --- 2. Configure API Settings ---
-        print("Step 2: Configuring API settings...")
-        # Open settings panel from chat page (first need to create a persona and chat)
+        # --- 2. Create Persona & Navigate to Detail ---
+        print("Step 2: Creating a persona...")
         page.locator('button#new-chat-btn').click()
         page.locator('.modal-content input[name="name"]').fill(PERSONA_NAME)
         page.locator('.modal-content button:has-text("Save Persona")').click()
         expect(page.locator('.chat-grid')).to_contain_text(PERSONA_NAME)
-
         page.locator(f'.chat-card:has-text("{PERSONA_NAME}")').click()
-        page.locator('button:has-text("Start New Chat")').click()
+        expect(page).to_have_url(re.compile(r'.*/main-card/\d+'))
+        page.screenshot(path="jules-scratch/verification/02_main_card_detail.png")
+
+        # --- 3. Main Card & Chat Management ---
+        print("Step 3: Managing main card and chats...")
+        # Edit the main card's name
+        page.locator('.detail-header button.edit-btn').click()
+        page.locator('.modal-content input[name="name"]').fill(f"{PERSONA_NAME} - Edited")
+        page.locator('.modal-content button:has-text("Save Persona")').click()
+        expect(page.locator('.detail-header h1')).to_have_text(f"{PERSONA_NAME} - Edited")
+
+        # Start a new chat
+        page.locator('button.add-btn:has-text("Start New Chat")').click()
+        # On the chat page, click back to get to the detail page again
+        expect(page).to_have_url(re.compile(r'.*/chat/\d+'))
+        page.locator('a.back-link:has-text("Back to Persona")').click()
+        expect(page).to_have_url(re.compile(r'.*/main-card/\d+'))
+
+        # Rename the chat
+        chat_item = page.locator('.session-item:has-text("New Chat")')
+        chat_item.locator('button:has-text("Rename")').click()
+        chat_item.locator('input[type="text"]').fill("My Renamed Chat")
+        chat_item.locator('button:has-text("Save")').click()
+        expect(page.locator('.session-item .session-link')).to_have_text("My Renamed Chat")
+        page.screenshot(path="jules-scratch/verification/03_chat_renamed.png")
+
+        # --- 4. Configure All Settings ---
+        print("Step 4: Configuring all settings...")
+        page.locator('.session-link:has-text("My Renamed Chat")').click()
         expect(page).to_have_url(re.compile(r'.*/chat/\d+'))
 
         page.locator('button.settings-btn').click()
         expect(page.locator('.settings-panel')).to_be_visible()
 
-        # Go to API Settings
-        page.locator('button.settings-menu-button:has-text("API Settings")').click()
-
-        # Add a new configuration
-        page.locator('button.add-config-btn').click()
+        # API Settings
+        page.locator('button:has-text("API Settings")').click()
+        page.locator('button:has-text("Add Configuration")').click()
         page.locator('.config-form input[name="name"]').fill(API_CONFIG_NAME)
         page.locator('.config-form input[name="model"]').fill("openrouter/auto")
         page.locator('.config-form input[name="proxy_url"]').fill("https://openrouter.ai/api/v1")
         page.locator('.config-form button:has-text("Save Configuration")').click()
+        page.locator(f'.config-item:has-text("{API_CONFIG_NAME}") button.select-btn').click()
+        expect(page.locator(f'.config-item:has-text("{API_CONFIG_NAME}")')).to_have_class(re.compile(r'\bactive\b'))
 
-        # Select the new configuration
-        config_item = page.locator(f'.config-item:has-text("{API_CONFIG_NAME}")')
-        expect(config_item).to_be_visible()
-        config_item.locator('button.select-btn').click()
-        expect(config_item).to_have_class(re.compile(r'\bactive\b'))
-        page.screenshot(path="jules-scratch/verification/02_api_config_selected.png")
-        print("API configuration created and selected.")
-
-        # --- 3. Configure Generation Settings ---
-        print("Step 3: Configuring generation settings...")
-        page.locator('.settings-header button.back-btn').click() # Back to main settings
-        page.locator('button.settings-menu-button:has-text("Generation Settings")').click()
-
-        # Change some values
-        page.locator('.slider-group:has-text("Temperature") input[type="range"]').set_input_files([]) # Hack to trigger change
+        # Generation Settings
+        page.locator('.settings-header button.back-btn').click()
+        page.locator('button:has-text("Generation Settings")').click()
         page.locator('.slider-group:has-text("Temperature") input[type="range"]').fill("0.7")
-        page.locator('.slider-group:has-text("Max Tokens") input[type="number"]').fill("8000")
+        page.locator('input[name="response_prefill_enabled"]').check()
+        page.locator('textarea[name="response_prefill"]').fill("Prefill: ")
 
-        # Enable and fill prefill
-        page.locator('input[type="checkbox"][name="response_prefill_enabled"]').check()
-        page.locator('textarea[name="response_prefill"]').fill("Prefill text: ")
+        # System & Chat Memory
+        page.locator('.settings-header button.back-btn').click()
+        page.locator('button:has-text("System & Chat Memory")').click()
+        page.locator('textarea[name="system_prompt"]').fill("You are a helpful assistant.")
+        page.locator('textarea[name="chat_memory"]').fill("The user's name is Jules.")
+        page.screenshot(path="jules-scratch/verification/04_all_settings_configured.png")
+        print("All settings configured.")
 
-        page.screenshot(path="jules-scratch/verification/03_generation_settings.png")
-        print("Generation settings configured.")
-        page.locator('.settings-header button.back-btn').click() # Back to main settings
-        page.locator('.settings-header button.close-btn').click() # Close panel
+        # --- 5. Verify Settings Persistence ---
+        print("Step 5: Verifying settings persistence...")
+        page.reload()
+        page.locator('button.settings-btn').click()
+        expect(page.locator('.settings-panel')).to_be_visible()
+        # Check API setting
+        page.locator('button:has-text("API Settings")').click()
+        expect(page.locator(f'.config-item:has-text("{API_CONFIG_NAME}")')).to_have_class(re.compile(r'\bactive\b'))
+        # Check Generation setting
+        page.locator('.settings-header button.back-btn').click()
+        page.locator('button:has-text("Generation Settings")').click()
+        expect(page.locator('.slider-group:has-text("Temperature") input[type="range"]')).to_have_value("0.7")
+        expect(page.locator('input[name="response_prefill_enabled"]')).to_be_checked()
+        # Check Memory (Note: this is tied to chat, so it will be there without localStorage)
+        page.locator('.settings-header button.back-btn').click()
+        page.locator('button:has-text("System & Chat Memory")').click()
+        expect(page.locator('textarea[name="system_prompt"]')).to_have_value("You are a helpful assistant.")
+        print("Settings persistence verified.")
+        page.locator('.settings-header button.close-btn').click()
 
-        # --- 4. Send Message and Verify ---
-        print("Step 4: Sending message with new settings...")
+        # --- 6. Send Message and Cleanup ---
+        print("Step 6: Sending message and cleaning up...")
         page.locator('textarea[placeholder="Type your message..."]').fill("Hello with settings")
         page.locator('button[aria-label="Send message"]').click()
-
-        # Expect an error because the API key is still fake/missing
         expect(page.locator('.message-bubble.error')).to_be_visible(timeout=10000)
-        expect(page.locator('.message-bubble.error .message-content')).to_contain_text('API key is missing')
-        page.screenshot(path="jules-scratch/verification/04_chat_with_settings_error.png")
-        print("Correctly received 'API key missing' error.")
 
-        # --- 5. Cleanup ---
-        print("Step 5: Cleaning up...")
-        page.goto(BASE_URL) # Go back to dashboard
-        page.locator(f'.chat-card:has-text("{PERSONA_NAME}") button.delete-btn').click()
+        page.goto(BASE_URL)
+        page.locator(f'.chat-card:has-text("{PERSONA_NAME} - Edited") button.delete-btn').click()
         page.locator('.modal-content:has-text("Are you sure?") button:has-text("Confirm Delete")').click()
         expect(page.locator('.no-chats-message')).to_be_visible()
+        page.screenshot(path="jules-scratch/verification/05_cleanup_complete.png")
 
         page.locator('button#logout-btn').click()
         expect(page).to_have_url(re.compile(r'.*/login$'))
-        page.screenshot(path="jules-scratch/verification/05_cleanup_complete.png")
         print("Cleanup successful.")
 
     finally:

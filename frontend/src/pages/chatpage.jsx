@@ -53,17 +53,30 @@ const ChatPage = () => {
   const handleSendMessage = async (messageContent) => {
     if (!messageContent) return;
 
+    // --- NEW: Check for required settings before sending ---
+    if (!advancedSettings.model || !advancedSettings.baseUrl) {
+      const errorBubble = {
+        role: 'assistant',
+        content: 'Error: Please configure a model and base URL in the settings panel before sending a message.',
+        type: 'error',
+      };
+      // Add a transient error message to the UI without sending to the backend
+      setChat(prevChat => ({ ...prevChat, history: [...prevChat.history, errorBubble] }));
+      return;
+    }
+
     const tempMessage = { role: 'user', content: messageContent };
     setChat(prevChat => ({ ...prevChat, history: [...prevChat.history, tempMessage] }));
     setIsSending(true);
     setError(''); // Clear previous errors
 
     try {
+      // The backend now requires model and base_url, so we pass them directly.
       const requestBody = {
         message: messageContent,
-        model: advancedSettings.model || null,
-        api_key: advancedSettings.apiKey || null,
-        base_url: advancedSettings.baseUrl || null
+        model: advancedSettings.model,
+        base_url: advancedSettings.baseUrl,
+        api_key: advancedSettings.apiKey || null, // api_key can still be optional
       };
 
       const response = await apiClient.post(`/chats/${chatId}/messages`, requestBody);
@@ -85,6 +98,9 @@ const ChatPage = () => {
   if (isLoading) return <div>Loading chat...</div>;
   if (error) return <div>{error}</div>;
 
+  // --- NEW: Disable send if settings are incomplete ---
+  const isSendDisabled = isSending || !advancedSettings.model || !advancedSettings.baseUrl;
+
   return (
     <div className="chat-page-container">
       <header className="chat-header">
@@ -103,7 +119,7 @@ const ChatPage = () => {
         ))}
         <div ref={messagesEndRef} />
       </div>
-      <MessageInput onSendMessage={handleSendMessage} isLoading={isSending} />
+      <MessageInput onSendMessage={handleSendMessage} isLoading={isSendDisabled} />
 
       <SettingsPanel
         isOpen={isSettingsOpen}

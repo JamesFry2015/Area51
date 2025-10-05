@@ -185,9 +185,13 @@ async def get_chat_completion(db: AsyncSession, chat: models.Chat, request: sche
     api_messages.extend(initial_history)
     api_messages.extend(current_history)
     
-    # Determine which API key and URL to use
+    # Since model and base_url are now required by the schema, we can use them directly.
     api_key = request.api_key or os.getenv("OPENROUTER_API_KEY")
-    api_url = request.base_url or "https://openrouter.ai/api/v1/chat/completions"
+    api_url = request.base_url
+
+    if not api_key:
+        raise HTTPException(status_code=400, detail="API key is missing. Please provide one in the chat settings or set OPENROUTER_API_KEY.")
+
     headers = {
         "Authorization": f"Bearer {api_key.strip()}",
         "Content-Type": "application/json",
@@ -195,9 +199,9 @@ async def get_chat_completion(db: AsyncSession, chat: models.Chat, request: sche
         "X-Title": "Area51 Chat App"
     }
     
-    # Build the payload, excluding any null values
+    # Build the payload, excluding any null values. No fallback for 'model' is needed
+    # as it is now a required field in the request schema.
     payload = {k: v for k, v in request.model_dump().items() if v is not None and k not in ['api_key', 'base_url', 'message']}
-    payload["model"] = payload.get("model") or "openrouter/auto"
     payload["messages"] = api_messages
     
     # Define more robust transport settings for production

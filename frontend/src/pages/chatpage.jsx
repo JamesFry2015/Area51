@@ -74,6 +74,15 @@ const ChatPage = () => {
     }
   };
 
+  const handleSelectConfig = (config) => {
+    setAdvancedSettings({
+      apiKey: config.api_key || '',
+      model: config.model || '',
+      baseUrl: config.proxy_url || ''
+    });
+    setIsSettingsOpen(false); // Close the panel after selection
+  };
+
   if (isLoading) return <div>Loading chat...</div>;
   if (error) return <div>{error}</div>;
 
@@ -102,6 +111,7 @@ const ChatPage = () => {
         onClose={() => setIsSettingsOpen(false)}
         settings={advancedSettings}
         onSettingChange={setAdvancedSettings}
+        onSelectConfig={handleSelectConfig} // <-- Pass the new handler
       />
     </div>
   );

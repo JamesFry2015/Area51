@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import apiClient from '../api.js';
 import './settingspanel.css';
 
-const SettingsPanel = ({ isOpen, onClose }) => {
+const SettingsPanel = ({ isOpen, onClose, onSelectConfig }) => {
   const [view, setView] = useState('main');
   const [apiConfigs, setApiConfigs] = useState([]);
   const [configToEdit, setConfigToEdit] = useState(null);
@@ -86,7 +86,7 @@ const SettingsPanel = ({ isOpen, onClose }) => {
         <div className="api-config-list">
           {apiConfigs.length > 0 ? apiConfigs.map(config => (
             <div key={config.id} className="config-item">
-              <div className="config-item-header"><h4>{config.name}</h4><div className="config-item-actions"><button onClick={() => handleEditClick(config)}>Edit</button><button onClick={() => handleDeleteClick(config.id)}>Delete</button></div></div>
+              <div className="config-item-header"><h4>{config.name}</h4><div className="config-item-actions"><button onClick={() => onSelectConfig(config)} className="select-btn">Select</button><button onClick={() => handleEditClick(config)}>Edit</button><button onClick={() => handleDeleteClick(config.id)}>Delete</button></div></div>
               <div className="config-item-details"><span>{config.model}</span><span>{config.proxy_url}</span></div>
             </div>
           )) : <p>No configurations saved yet.</p>}

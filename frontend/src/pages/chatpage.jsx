@@ -23,6 +23,17 @@ const ChatPage = () => {
     model: '',
     baseUrl: ''
   });
+  const [generationSettings, setGenerationSettings] = useState(() => {
+    const saved = localStorage.getItem('generationSettings');
+    const defaults = {
+      reasoning: false,
+    };
+    return saved ? { ...defaults, ...JSON.parse(saved) } : defaults;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('generationSettings', JSON.stringify(generationSettings));
+  }, [generationSettings]);
 
   const messagesEndRef = useRef(null);
 
@@ -62,7 +73,8 @@ const ChatPage = () => {
         message: messageContent,
         model: advancedSettings.model || null,
         api_key: advancedSettings.apiKey || null,
-        base_url: advancedSettings.baseUrl || null
+        base_url: advancedSettings.baseUrl || null,
+        reasoning: generationSettings.reasoning,
       };
 
       const response = await apiClient.post(`/chats/${chatId}/messages`, requestBody);
@@ -102,6 +114,8 @@ const ChatPage = () => {
         onClose={() => setIsSettingsOpen(false)}
         settings={advancedSettings}
         onSettingChange={setAdvancedSettings}
+        generationSettings={generationSettings}
+        onGenerationSettingsChange={setGenerationSettings}
       />
     </div>
   );

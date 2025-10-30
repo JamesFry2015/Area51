@@ -1,16 +1,22 @@
 import React from 'react';
-import './MessageBubble.css'; // We will create this CSS file next
+import './MessageBubble.css';
 
 const MessageBubble = ({ message }) => {
   const isUser = message.role === 'user';
-  
-  // A simple way to check if the content is an error message
-  const isError = message.content.toLowerCase().startsWith('error:');
+  const isError = message.type === 'error';
+  const hasReasoning = message.reasoning && Object.keys(message.reasoning).length > 0;
 
   return (
     <div className={`message-bubble ${isUser ? 'user' : 'assistant'} ${isError ? 'error' : ''}`}>
+      {hasReasoning && (
+        <details className="reasoning-dropdown">
+          <summary>Look at reasoning tokens</summary>
+          <pre className="reasoning-content">
+            {JSON.stringify(message.reasoning, null, 2)}
+          </pre>
+        </details>
+      )}
       <div className="message-content">
-        {/* We'll use a simple pre-wrap for now to respect newlines */}
         {message.content}
       </div>
     </div>

@@ -5,10 +5,19 @@ from typing import List, Optional
 class Message(BaseModel):
     role: str
     content: str
+    reasoning: Optional[dict] = None
+
 class ChatCompletionRequest(BaseModel):
-    message: str; model: Optional[str] = None; api_key: Optional[str] = None
-    base_url: Optional[str] = None; temperature: Optional[float] = 1.0; top_p: Optional[float] = 1.0
-    top_k: Optional[int] = -1; repetition_penalty: Optional[float] = 1.0; frequency_penalty: Optional[float] = 0.0
+    message: str
+    model: Optional[str] = None
+    api_key: Optional[str] = None
+    base_url: Optional[str] = None
+    temperature: Optional[float] = 1.0
+    top_p: Optional[float] = 1.0
+    top_k: Optional[int] = -1
+    repetition_penalty: Optional[float] = 1.0
+    frequency_penalty: Optional[float] = 0.0
+    reasoning: Optional[bool] = False
 
 # --- Chat & MainCard Schemas (no change) ---
 class ChatBase(BaseModel): pass

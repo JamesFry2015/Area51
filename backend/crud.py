@@ -178,7 +178,12 @@ async def get_chat_completion(db: AsyncSession, chat: models.Chat, request: sche
     }
     
     # Build the payload, excluding any null values
-    payload = {k: v for k, v in request.model_dump().items() if v is not None and k not in ['api_key', 'base_url', 'message']}
+    payload = {
+        k: v for k, v in request.model_dump().items()
+        if v is not None and k not in ['api_key', 'base_url', 'message', 'reasoning']
+    }
+    if request.reasoning:
+        payload['reasoning'] = { "enabled": True }
     payload["model"] = payload.get("model") or "openrouter/auto"
     payload["messages"] = api_messages
     
@@ -187,19 +192,27 @@ async def get_chat_completion(db: AsyncSession, chat: models.Chat, request: sche
         async with httpx.AsyncClient() as client:
             response = await client.post(api_url, headers=headers, json=payload, timeout=60.0)
             response.raise_for_status()
-            response_message = response.json()['choices'][0]['message']['content']
-    except httpx.HTTPStatusError as e:
-        response_message = f"Error: API request failed with status {e.response.status_code}. Response: {e.response.text}"
-    except Exception as e:
-        response_message = f"An unexpected error occurred: {e}"
+            response_data = response.json()
+            response_choice = response_data['choices'][0]
+            response_message_content = response_choice['message']['content']
+            response_reasoning = response_choice['message'].get('reasoning')
 
-    # Save the updated history to the database
-    chat.history.append({"role": "assistant", "content": response_message})
-    chat.history_json = json.dumps(chat.history)
-    await db.commit()
-    await db.refresh(chat)
-    
-    # Decode the history again before returning the final state
-    chat.history = json.loads(chat.history_json)
-    return chat
+        assistant_message = {
+            "role": "assistant",
+            "content": response_message_content,
+            "reasoning": response_reasoning
+        }
+        chat.history.append(assistant_message)
+        chat.history_json = json.dumps(chat.history)
+        await db.commit()
+        await db.refresh(chat)
+
+        # Decode the history again before returning
+        chat.history = json.loads(chat.history_json)
+        return chat
+
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=e.response.status_code, detail=f"API Error: {e.response.text}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {e}")
 

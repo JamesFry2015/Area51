@@ -1,10 +1,10 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
-import LoginPage from './pages/LoginPage.jsx';
-import DashboardPage from './pages/DashboardPage.jsx';
-import MainCardDetailPage from './pages/MainCardDetailPage.jsx'; // <-- Import new page
-import ChatPage from './pages/ChatPage.jsx';
-import ProtectedRoute from './components/ProtectedRoute.jsx';
+import LoginPage from './pages/loginpage.jsx';
+import DashboardPage from './pages/dashboardpage.jsx';
+import MainCardDetailPage from './pages/maincarddetailpage.jsx'; // <-- Import new page
+import ChatPage from './pages/chatpage.jsx';
+import ProtectedRoute from './components/protectedroute.jsx';
 
 function App() {
   return (

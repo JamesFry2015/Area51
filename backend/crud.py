@@ -80,6 +80,14 @@ async def create_main_card(db: AsyncSession, main_card: schemas.MainCardCreate, 
     await db.refresh(db_main_card)
     return db_main_card
 
+async def delete_main_card(db: AsyncSession, main_card: models.MainCard):
+    """
+    Deletes a main card from the database.
+    """
+    await db.delete(main_card)
+    await db.commit()
+    return {"ok": True}
+
 # --- API Configuration CRUD Functions ---
 async def get_api_configs(db: AsyncSession, user_id: int):
     """

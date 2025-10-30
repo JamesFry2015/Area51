@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import './MessageInput.css'; // We will create this CSS file next
+import './messageinput.css'; // We will create this CSS file next
 
 const MessageInput = ({ onSendMessage, isLoading }) => {
   const [inputValue, setInputValue] = useState('');

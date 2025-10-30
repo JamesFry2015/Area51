@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom'; // <-- Step 1: Import the navigation tool
-import { useAuth } from '../context/AuthContext.jsx';
+import { useAuth } from '../context/authcontext.jsx';
 import apiClient from '../api.js';
-import './LoginPage.css';
+import './loginpage.css';
 
 const LoginPage = () => {
   // State for the login form

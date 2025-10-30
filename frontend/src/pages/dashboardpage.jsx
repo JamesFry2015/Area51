@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import apiClient from '../api.js';
-import { useAuth } from '../context/AuthContext.jsx';
+import { useAuth } from '../context/authcontext.jsx';
 // --- FIX: Updated the import statements to use the new component names ---
-import MainCard from '../components/MainCard.jsx';
-import MainCardModal from '../components/MainCardModal.jsx';
-import './DashboardPage.css';
+import MainCard from '../components/maincard.jsx';
+import MainCardModal from '../components/maincardmodal.jsx';
+import './dashboardpage.css';
 
 const DashboardPage = () => {
   const [mainCards, setMainCards] = useState([]);
@@ -66,11 +66,16 @@ const DashboardPage = () => {
   }
 
   const confirmDelete = async () => {
-      console.log("Deleting card:", cardToDelete)
+    try {
+      await apiClient.delete(`/main-cards/${cardToDelete}`);
       setShowDeleteConfirm(false);
       setCardToDelete(null);
-      fetchMainCards();
-  }
+      fetchMainCards(); // Re-fetch cards to update the UI
+    } catch (err) {
+      console.error("Failed to delete main card:", err);
+      // Optionally, set an error state here to inform the user
+    }
+  };
 
   if (isLoading) return <div>Loading...</div>;
   if (error) return <div>{error}</div>;

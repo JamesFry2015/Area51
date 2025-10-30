@@ -55,6 +55,13 @@ async def read_main_card(main_card_id: int, current_user: models.User = Depends(
         raise HTTPException(status_code=404, detail="Main Card not found")
     return db_main_card
 
+@app.delete("/main-cards/{main_card_id}")
+async def delete_main_card(main_card_id: int, current_user: models.User = Depends(auth.get_current_user), db: AsyncSession = Depends(get_db)):
+    db_main_card = await crud.get_main_card(db=db, main_card_id=main_card_id, user_id=current_user.id)
+    if db_main_card is None:
+        raise HTTPException(status_code=404, detail="Main Card not found")
+    return await crud.delete_main_card(db=db, main_card=db_main_card)
+
 # --- API Configuration Endpoints ---
 @app.post("/api-configs/", response_model=schemas.ApiConfigSchema)
 async def create_api_config(

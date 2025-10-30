@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import apiClient from '../api.js';
-import { useAuth } from '../context/AuthContext.jsx';
+import { useAuth } from '../context/authcontext.jsx';
 import MessageBubble from '../components/MessageBubble.jsx';
 import MessageInput from '../components/MessageInput.jsx';
-import SettingsPanel from '../components/SettingsPanel.jsx'; // Import the new component
-import './ChatPage.css';
+import SettingsPanel from '../components/settingspanel.jsx'; // Import the new component
+import './chatpage.css';
 
 const ChatPage = () => {
   const { chatId } = useParams();

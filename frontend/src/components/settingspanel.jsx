@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import apiClient from '../api.js';
-import './SettingsPanel.css';
+import './settingspanel.css';
 
 const SettingsPanel = ({ isOpen, onClose }) => {
   const [view, setView] = useState('main');

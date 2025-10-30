@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import apiClient from '../api.js';
-import { useAuth } from '../context/AuthContext.jsx';
-import './MainCardDetailPage.css';
+import { useAuth } from '../context/authcontext.jsx';
+import './maincarddetailpage.css';
 
 const MainCardDetailPage = () => {
   const { mainCardId } = useParams();

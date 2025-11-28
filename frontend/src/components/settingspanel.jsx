@@ -64,7 +64,8 @@ const SettingsPanel = ({
     onSettingChange({
       model: config.model,
       baseUrl: config.proxy_url,
-      apiKey: ''
+      apiKey: '',
+      requestBody: config.request_body || null
     });
   };
 
@@ -200,19 +201,30 @@ const SliderInput = ({ label, name, value, min, max, step, onChange }) => (
 );
 
 const ConfigForm = ({ onSave, onCancel, onClose, initialData }) => {
-  const [config, setConfig] = useState({ name: '', model: '', proxy_url: '', api_key: '', custom_prompt: '' });
+  const [config, setConfig] = useState({ name: '', model: '', proxy_url: '', api_key: '', custom_prompt: '', request_body: '' });
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    if (initialData) setConfig({ ...initialData, api_key: '' });
-    else setConfig({ name: '', model: '', proxy_url: '', api_key: '', custom_prompt: '' });
+    if (initialData) setConfig({ ...initialData, api_key: '', request_body: initialData.request_body || '' });
+    else setConfig({ name: '', model: '', proxy_url: '', api_key: '', custom_prompt: '', request_body: '' });
   }, [initialData]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setConfig(prev => ({ ...prev, [name]: value }));
+    if (name === 'request_body') setError('');
   };
 
   const handleSaveClick = () => {
+    if (config.request_body) {
+      try {
+        JSON.parse(config.request_body);
+      } catch (e) {
+        setError('Request Body must be valid JSON');
+        return;
+      }
+    }
+
     const payload = { ...config };
     if (initialData && !payload.api_key) delete payload.api_key;
     onSave(payload);
@@ -231,6 +243,8 @@ const ConfigForm = ({ onSave, onCancel, onClose, initialData }) => {
           <label>Model Name</label><input name="model" type="text" placeholder="gpt-4, claude-3-opus, etc." value={config.model} onChange={handleChange} />
           <label>Proxy URL</label><input name="proxy_url" type="text" placeholder="https://your.url.com/v1" value={config.proxy_url} onChange={handleChange} />
           <label>API Key (Optional)</label><input name="api_key" type="password" placeholder={initialData ? "Leave blank to keep existing key" : "Proxy API key"} value={config.api_key} onChange={handleChange} />
+          <label>Request Body (JSON)</label><textarea name="request_body" placeholder='{"key": "value"}' rows="4" value={config.request_body} onChange={handleChange}></textarea>
+          {error && <span className="error-text" style={{color: 'red', fontSize: '0.9em', display: 'block', marginBottom: '10px'}}>{error}</span>}
           <label>Custom Prompt (Optional)</label><textarea name="custom_prompt" placeholder="Custom prompt template..." rows="4" value={config.custom_prompt} onChange={handleChange}></textarea>
           <div className="form-actions"><button className="cancel-btn" onClick={onCancel}>Cancel</button><button className="add-btn" onClick={handleSaveClick}>Save Configuration</button></div>
         </div>

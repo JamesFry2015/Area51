@@ -41,6 +41,7 @@ class ApiConfig(Base):
     proxy_url = Column(String)
     api_key = Column(String, nullable=True)
     custom_prompt = Column(String, nullable=True)
+    request_body = Column(Text, nullable=True)
     owner_id = Column(Integer, ForeignKey("users.id"))
     owner = relationship("User", back_populates="api_configs")
 

@@ -2,8 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import apiClient from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
-import MainCardModal from '../components/maincardmodal.jsx';
-import './maincarddetailpage.css';
+import MainCardModal from "../components/MainCardModal.jsx";
+import "./MainCardDetailPage.css";
 
 const MainCardDetailPage = () => {
   const { mainCardId } = useParams();

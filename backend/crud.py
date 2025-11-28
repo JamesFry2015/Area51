@@ -159,9 +159,12 @@ async def get_chat_completion(db: AsyncSession, chat: models.Chat, request: sche
     
     payload = {
         k: v for k, v in request.model_dump().items()
-        if v is not None and k not in ['api_key', 'base_url', 'message', 'response_prefill']
+        if v is not None and k not in ['api_key', 'base_url', 'message', 'response_prefill', 'request_body']
     }
     payload["messages"] = api_messages
+
+    if request.request_body:
+        payload.update(request.request_body)
     
     timeout = httpx.Timeout(10.0, read=60.0)
     transport = httpx.AsyncHTTPTransport(retries=2)

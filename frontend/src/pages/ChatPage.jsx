@@ -20,7 +20,7 @@ const ChatPage = () => {
   // --- Load settings from localStorage with defaults ---
   const [advancedSettings, setAdvancedSettings] = useState(() => {
     const saved = localStorage.getItem('advancedSettings');
-    return saved ? JSON.parse(saved) : { apiKey: '', model: '', baseUrl: '' };
+    return saved ? JSON.parse(saved) : { apiKey: '', model: '', baseUrl: '', requestBody: null };
   });
 
   const [generationSettings, setGenerationSettings] = useState(() => {
@@ -95,6 +95,7 @@ const ChatPage = () => {
         response_prefill: generationSettings.response_prefill_enabled
           ? generationSettings.response_prefill
           : null,
+        request_body: advancedSettings.requestBody ? JSON.parse(advancedSettings.requestBody) : null
       };
 
       const response = await apiClient.post(`/chats/${chatId}/messages`, requestBody);

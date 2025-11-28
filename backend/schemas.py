@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 # --- Message & Completion Schemas ---
 class Message(BaseModel):
@@ -19,6 +19,7 @@ class ChatCompletionRequest(BaseModel):
     repetition_penalty: Optional[float] = 1.0
     frequency_penalty: Optional[float] = 0.0
     response_prefill: Optional[str] = None
+    request_body: Optional[Dict[str, Any]] = None
 
 # --- Chat & MainCard Schemas ---
 class ChatBase(BaseModel):
@@ -69,6 +70,7 @@ class ApiConfigBase(BaseModel):
     model: str
     proxy_url: str
     custom_prompt: Optional[str] = None
+    request_body: Optional[str] = None
 
 class ApiConfigCreate(ApiConfigBase):
     api_key: Optional[str] = None
@@ -79,6 +81,7 @@ class ApiConfigUpdate(BaseModel):
     proxy_url: Optional[str] = None
     api_key: Optional[str] = None
     custom_prompt: Optional[str] = None
+    request_body: Optional[str] = None
 
 class ApiConfigSchema(ApiConfigBase):
     id: int

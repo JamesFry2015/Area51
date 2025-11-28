@@ -23,6 +23,14 @@
   color: #d4d4d4; /* Softer text color */
 }
 
+.settings-content-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  /* Ensure wrapper doesn't scroll so header stays fixed; inner .settings-content handles scrolling */
+  overflow: hidden;
+}
+
 @keyframes slideIn {
   from { transform: translateX(100%); }
   to { transform: translateX(0); }

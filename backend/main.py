@@ -3,8 +3,9 @@ import os
 load_dotenv()
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List
+from typing import List, Union
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -138,12 +139,35 @@ async def update_chat(chat_id: int, chat_update: schemas.ChatUpdate, current_use
         raise HTTPException(status_code=404, detail="Chat not found")
     return await crud.update_chat(db=db, chat=chat, chat_update=chat_update)
 
-@app.post("/chats/{chat_id}/messages", response_model=schemas.ChatSchema)
+@app.post("/chats/{chat_id}/messages", response_model=Union[schemas.ChatSchema, dict])
 async def chat_completion(chat_id: int, request: schemas.ChatCompletionRequest, current_user: models.User = Depends(auth.get_current_user), db: AsyncSession = Depends(get_db)):
     chat = await crud.get_chat(db, chat_id=chat_id, user_id=current_user.id)
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
+
+    if request.stream:
+        return StreamingResponse(
+            crud.get_chat_completion_stream(db=db, chat=chat, request=request),
+            media_type="text/event-stream"
+        )
+
     return await crud.get_chat_completion(db=db, chat=chat, request=request)
+
+@app.delete("/chats/{chat_id}/messages/{message_index}", response_model=schemas.ChatSchema)
+async def delete_chat_message(chat_id: int, message_index: int, current_user: models.User = Depends(auth.get_current_user), db: AsyncSession = Depends(get_db)):
+    chat = await crud.get_chat(db, chat_id=chat_id, user_id=current_user.id)
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+
+    current_history = list(chat.history)
+    if message_index < 0 or message_index >= len(current_history):
+        raise HTTPException(status_code=400, detail="Invalid message index")
+
+    current_history.pop(message_index)
+
+    # We use the existing update_chat logic to save
+    chat = await crud.update_chat(db=db, chat=chat, chat_update=schemas.ChatUpdate(history=current_history))
+    return chat
 
 @app.delete("/chats/{chat_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_chat(chat_id: int, current_user: models.User = Depends(auth.get_current_user), db: AsyncSession = Depends(get_db)):

@@ -20,6 +20,7 @@ class ChatCompletionRequest(BaseModel):
     frequency_penalty: Optional[float] = 0.0
     response_prefill: Optional[str] = None
     request_body: Optional[Dict[str, Any]] = None
+    stream: bool = False
 
 # --- Chat & MainCard Schemas ---
 class ChatBase(BaseModel):
@@ -34,6 +35,7 @@ class ChatUpdate(BaseModel):
     name: Optional[str] = None
     system_prompt: Optional[str] = None
     chat_memory: Optional[str] = None
+    history: Optional[List[Message]] = None
 
 class ChatSchema(ChatBase):
     id: int

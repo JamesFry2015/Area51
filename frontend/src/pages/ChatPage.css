@@ -29,6 +29,13 @@
   font-size: 1rem;
 }
 
+.settings-btn {
+    background: none;
+    border: none;
+    color: #e0e0e0;
+    cursor: pointer;
+}
+
 /* This wrapper will handle the scrolling and growing */
 .chat-history-wrapper {
   flex-grow: 1;
@@ -43,4 +50,41 @@
   margin: 0 auto; /* Center the content */
   display: flex;
   flex-direction: column;
+}
+
+/* Message Actions Wrapper */
+.message-wrapper {
+    position: relative;
+    margin-bottom: 10px;
+}
+
+.message-actions {
+    position: absolute;
+    bottom: -20px;
+    right: 10px;
+    opacity: 0;
+    transition: opacity 0.2s;
+    background-color: rgba(0,0,0,0.5);
+    border-radius: 4px;
+    padding: 2px;
+    z-index: 10;
+}
+
+.message-wrapper:hover .message-actions {
+    opacity: 1;
+}
+
+.msg-action-btn {
+    background: none;
+    border: none;
+    color: #bbb;
+    font-size: 0.75rem;
+    cursor: pointer;
+    margin-left: 5px;
+    padding: 2px 5px;
+}
+
+.msg-action-btn:hover {
+    color: white;
+    text-decoration: underline;
 }

@@ -1,10 +1,11 @@
 .message-bubble {
-  max-width: 75%;
+  max-width: 85%; /* Slightly wider for code blocks */
   padding: 10px 15px;
   border-radius: 18px;
   margin-bottom: 10px;
   line-height: 1.5;
   word-wrap: break-word;
+  position: relative; /* For positioning actions */
 }
 
 .message-bubble.user {
@@ -26,6 +27,75 @@
     color: #ffcccc;
 }
 
+/* ReactMarkdown handles whitespace */
 .message-content {
-  white-space: pre-wrap; /* This makes sure newlines and spaces are respected */
+}
+
+/* Markdown Styles */
+.message-content p {
+  margin-bottom: 1em;
+}
+.message-content p:last-child {
+  margin-bottom: 0;
+}
+.message-content pre {
+  margin: 10px 0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Code Block Wrapper */
+.code-block-wrapper {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 10px 0;
+}
+
+.code-block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #2d2d2d;
+  padding: 5px 10px;
+  font-size: 0.85em;
+  color: #ccc;
+}
+
+.code-lang {
+  font-family: monospace;
+}
+
+/* Copy Button */
+.copy-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #aaa;
+  font-size: 1.1em;
+  padding: 2px 5px;
+  transition: color 0.2s;
+}
+
+.copy-btn:hover {
+  color: #fff;
+}
+
+.message-header-actions {
+    position: absolute;
+    top: 5px;
+    right: 10px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.message-bubble:hover .message-header-actions {
+    opacity: 1;
+}
+
+.message-copy-btn {
+    background-color: rgba(0,0,0,0.2);
+    border-radius: 4px;
+    padding: 4px;
+    font-size: 0.9em;
 }

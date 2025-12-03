@@ -159,9 +159,12 @@ async def get_chat_completion(db: AsyncSession, chat: models.Chat, request: sche
     
     payload = {
         k: v for k, v in request.model_dump().items()
-        if v is not None and k not in ['api_key', 'base_url', 'message', 'response_prefill', 'request_body']
+        if v is not None and k not in ['api_key', 'base_url', 'message', 'response_prefill', 'request_body', 'stream']
     }
     payload["messages"] = api_messages
+
+    if request.stream:
+        payload["stream"] = True
 
     if request.request_body:
         payload.update(request.request_body)
@@ -187,6 +190,80 @@ async def get_chat_completion(db: AsyncSession, chat: models.Chat, request: sche
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {e}")
 
     return chat
+
+async def get_chat_completion_stream(db: AsyncSession, chat: models.Chat, request: schemas.ChatCompletionRequest):
+    """Handles streaming LLM response."""
+    import json
+    main_card = await db.get(models.MainCard, chat.main_card_id)
+
+    api_messages = []
+    # Prepend system prompts and memory
+    if main_card.description:
+        api_messages.append({"role": "system", "content": main_card.description})
+    if chat.system_prompt:
+        api_messages.append({"role": "system", "content": chat.system_prompt})
+    if chat.chat_memory:
+        api_messages.append({"role": "system", "content": f"Chat Memory (for context):\n{chat.chat_memory}"})
+
+    # Add initial prompts and chat history
+    if main_card.initial_message:
+        api_messages.append({"role": "user", "content": main_card.initial_message})
+    if main_card.example_response:
+        api_messages.append({"role": "assistant", "content": main_card.example_response})
+
+    current_history = list(chat.history)
+    current_history.append({"role": "user", "content": request.message})
+    api_messages.extend(current_history)
+
+    if request.response_prefill:
+        api_messages.append({"role": "assistant", "content": request.response_prefill})
+
+    api_key = request.api_key or os.getenv("OPENROUTER_API_KEY")
+    if not api_key:
+        yield f"data: Error: API key is missing.\n\n"
+        return
+
+    headers = {"Authorization": f"Bearer {api_key.strip()}", "Content-Type": "application/json"}
+
+    payload = {
+        k: v for k, v in request.model_dump().items()
+        if v is not None and k not in ['api_key', 'base_url', 'message', 'response_prefill', 'request_body', 'stream']
+    }
+    payload["messages"] = api_messages
+    payload["stream"] = True
+
+    if request.request_body:
+        payload.update(request.request_body)
+
+    timeout = httpx.Timeout(10.0, read=120.0) # Longer timeout for streaming
+
+    accumulated_content = ""
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            async with client.stream("POST", request.base_url, headers=headers, json=payload) as response:
+                response.raise_for_status()
+                async for chunk in response.aiter_lines():
+                    if chunk.startswith("data: "):
+                        data = chunk[6:]
+                        if data.strip() == "[DONE]":
+                            break
+                        try:
+                            json_data = json.loads(data)
+                            content = json_data['choices'][0]['delta'].get('content', '')
+                            if content:
+                                accumulated_content += content
+                                yield content
+                        except Exception:
+                            pass
+    except Exception as e:
+        yield f"Error: {str(e)}"
+    finally:
+        # Save aggregated response to DB
+        if accumulated_content:
+            final_message = (request.response_prefill or "") + accumulated_content
+            current_history.append({"role": "assistant", "content": final_message})
+            chat.history = current_history
+            await db.commit()
 
 async def update_chat(db: AsyncSession, chat: models.Chat, chat_update: schemas.ChatUpdate):
     """Updates a chat session."""

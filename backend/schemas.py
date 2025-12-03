@@ -1,13 +1,16 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 
 # --- Message & Completion Schemas ---
 class Message(BaseModel):
     role: str
     content: str
+    # New fields for ChatGPT-style versioning
+    versions: Optional[List[str]] = []
+    current_version: Optional[int] = 0
 
 class ChatCompletionRequest(BaseModel):
-    message: str
+    message: Optional[str] = None # Optional because we might just be regenerating
     model: str
     base_url: str
     api_key: Optional[str] = None
@@ -21,6 +24,8 @@ class ChatCompletionRequest(BaseModel):
     response_prefill: Optional[str] = None
     request_body: Optional[Dict[str, Any]] = None
     stream: bool = False
+    # New flag to tell backend: "Don't append, just add a version to the last message"
+    regenerate: bool = False 
 
 # --- Chat & MainCard Schemas ---
 class ChatBase(BaseModel):
@@ -88,7 +93,6 @@ class ApiConfigUpdate(BaseModel):
 class ApiConfigSchema(ApiConfigBase):
     id: int
     owner_id: int
-    # api_key is intentionally omitted from this response schema for security
     class Config:
         from_attributes = True
 

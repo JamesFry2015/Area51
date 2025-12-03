@@ -1,24 +1,41 @@
+/* Container to handle alignment */
+.message-container {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 15px;
+  max-width: 85%;
+}
+
+.user-align {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.assistant-align {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
+/* The Bubble itself */
 .message-bubble {
-  max-width: 85%; /* Slightly wider for code blocks */
   padding: 10px 15px;
   border-radius: 18px;
-  margin-bottom: 10px;
   line-height: 1.5;
   word-wrap: break-word;
-  position: relative; /* For positioning actions */
+  position: relative;
+  min-height: 24px;
+  width: 100%;
 }
 
 .message-bubble.user {
   background-color: #007bff;
   color: white;
-  align-self: flex-end;
   border-bottom-right-radius: 4px;
 }
 
 .message-bubble.assistant {
   background-color: #3a3a3a;
   color: #e0e0e0;
-  align-self: flex-start;
   border-bottom-left-radius: 4px;
 }
 
@@ -27,75 +44,113 @@
     color: #ffcccc;
 }
 
-/* ReactMarkdown handles whitespace */
-.message-content {
-}
-
-/* Markdown Styles */
-.message-content p {
-  margin-bottom: 1em;
-}
-.message-content p:last-child {
-  margin-bottom: 0;
-}
-.message-content pre {
-  margin: 10px 0;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-/* Code Block Wrapper */
-.code-block-wrapper {
-  position: relative;
-  border-radius: 8px;
-  overflow: hidden;
-  margin: 10px 0;
-}
-
-.code-block-header {
+/* --- Footer Actions (Carousel & Buttons) --- */
+.message-footer {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  background-color: #2d2d2d;
-  padding: 5px 10px;
-  font-size: 0.85em;
-  color: #ccc;
+  gap: 10px;
+  padding: 2px 5px;
+  margin-top: 2px;
+  opacity: 0; /* Hidden by default */
+  transition: opacity 0.2s ease-in-out;
 }
 
-.code-lang {
-  font-family: monospace;
+.message-container:hover .message-footer {
+  opacity: 1; /* Show on hover */
 }
 
-/* Copy Button */
-.copy-btn {
+/* Version Carousel */
+.version-nav {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.8rem;
+  color: #888;
+  background-color: #222;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.version-nav button {
+  background: none;
+  border: none;
+  color: #bbb;
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.version-nav button:hover:not(:disabled) { color: white; }
+.version-nav button:disabled { color: #444; cursor: default; }
+
+/* Action Buttons */
+.action-buttons {
+  display: flex;
+  gap: 5px;
+}
+
+.action-btn {
   background: none;
   border: none;
   cursor: pointer;
-  color: #aaa;
-  font-size: 1.1em;
-  padding: 2px 5px;
+  color: #888;
+  font-size: 1rem;
+  padding: 2px;
   transition: color 0.2s;
 }
 
-.copy-btn:hover {
-  color: #fff;
+.action-btn:hover { color: #fff; }
+.delete-icon:hover { color: #ff4d4d; }
+
+/* --- Edit Mode --- */
+.edit-mode-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.message-header-actions {
-    position: absolute;
-    top: 5px;
-    right: 10px;
-    opacity: 0;
-    transition: opacity 0.2s;
+.edit-textarea {
+  width: 100%;
+  background-color: #222; /* Slightly darker than bubble */
+  border: 1px solid #555;
+  color: white;
+  padding: 10px;
+  border-radius: 8px;
+  font-family: inherit;
+  resize: none;
 }
 
-.message-bubble:hover .message-header-actions {
-    opacity: 1;
+.edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
-.message-copy-btn {
-    background-color: rgba(0,0,0,0.2);
-    border-radius: 4px;
-    padding: 4px;
-    font-size: 0.9em;
+.edit-actions button {
+  font-size: 0.85rem;
+  padding: 6px 12px;
+  border-radius: 6px;
 }
+
+.save-btn { background-color: #28a745; color: white; border: none; }
+.save-btn:hover { background-color: #218838; }
+.cancel-btn { background-color: #444; color: white; border: none; }
+.cancel-btn:hover { background-color: #555; }
+
+/* --- Markdown Styles --- */
+.message-content p { margin-bottom: 1em; }
+.message-content p:last-child { margin-bottom: 0; }
+.message-content pre { margin: 10px 0; border-radius: 8px; overflow: hidden; }
+
+/* Code Block Wrapper */
+.code-block-wrapper { position: relative; border-radius: 8px; overflow: hidden; margin: 10px 0; }
+.code-block-header { display: flex; justify-content: space-between; align-items: center; background-color: #2d2d2d; padding: 5px 10px; font-size: 0.85em; color: #ccc; }
+.code-lang { font-family: monospace; }
+
+/* Typing Indicator */
+.typing-indicator { display: flex; align-items: center; gap: 5px; padding: 5px 0; height: 24px; }
+.typing-dot { width: 8px; height: 8px; background-color: #bbb; border-radius: 50%; animation: typingBounce 1.4s infinite ease-in-out both; }
+.typing-dot:nth-child(1) { animation-delay: -0.32s; }
+.typing-dot:nth-child(2) { animation-delay: -0.16s; }
+@keyframes typingBounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }

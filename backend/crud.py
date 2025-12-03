@@ -12,19 +12,56 @@ from . import models, schemas
 # --- Helper: Safe Message Appender ---
 async def append_message_to_chat(db: AsyncSession, chat_id: int, role: str, content: str):
     """Safely appends a message to the chat history and commits it."""
-    # 1. Fetch the chat fresh from DB
     result = await db.execute(select(models.Chat).filter(models.Chat.id == chat_id))
     chat = result.scalars().first()
     
     if not chat:
         return None
 
-    # 2. Update History
     current_history = list(chat.history) if chat.history else []
-    current_history.append({"role": role, "content": content})
+    
+    # Initialize versioning structure
+    new_message = {
+        "role": role,
+        "content": content,
+        "versions": [content],
+        "current_version": 0
+    }
+    
+    current_history.append(new_message)
     chat.history = current_history
     
-    # 3. Mark modified and Commit
+    flag_modified(chat, "history")
+    await db.commit()
+    await db.refresh(chat)
+    return chat
+
+async def add_version_to_last_message(db: AsyncSession, chat_id: int, content: str):
+    """Adds a new version to the LAST message in the history."""
+    result = await db.execute(select(models.Chat).filter(models.Chat.id == chat_id))
+    chat = result.scalars().first()
+    
+    if not chat or not chat.history:
+        return None
+
+    current_history = list(chat.history)
+    last_msg_index = len(current_history) - 1
+    last_msg = current_history[last_msg_index] # This is a dict
+
+    # Ensure keys exist (migration for old messages)
+    if "versions" not in last_msg:
+        last_msg["versions"] = [last_msg["content"]]
+        last_msg["current_version"] = 0
+    
+    # Add new version
+    last_msg["versions"].append(content)
+    last_msg["current_version"] = len(last_msg["versions"]) - 1
+    last_msg["content"] = content # Update main content display
+    
+    # Update list
+    current_history[last_msg_index] = last_msg
+    chat.history = current_history
+    
     flag_modified(chat, "history")
     await db.commit()
     await db.refresh(chat)
@@ -134,11 +171,11 @@ async def create_chat_in_main_card(db: AsyncSession, main_card_id: int):
     return db_chat
 
 async def get_chat_completion(db: AsyncSession, chat: models.Chat, request: schemas.ChatCompletionRequest):
-    # This non-streaming function can use the helper directly
-    await append_message_to_chat(db, chat.id, "user", request.message)
-    
-    # Reload chat to get updated history
-    await db.refresh(chat) 
+    # If not regenerating, save user message
+    if not request.regenerate and request.message:
+        await append_message_to_chat(db, chat.id, "user", request.message)
+        await db.refresh(chat) 
+
     main_card = await db.get(models.MainCard, chat.main_card_id)
     
     api_messages = []
@@ -154,7 +191,9 @@ async def get_chat_completion(db: AsyncSession, chat: models.Chat, request: sche
     if main_card.example_response:
         api_messages.append({"role": "assistant", "content": main_card.example_response})
     
-    api_messages.extend(chat.history)
+    # Use current history. If regenerating, the history already contains the user prompt.
+    for msg in chat.history:
+        api_messages.append({"role": msg["role"], "content": msg["content"]})
 
     if request.response_prefill:
         api_messages.append({"role": "assistant", "content": request.response_prefill})
@@ -167,7 +206,7 @@ async def get_chat_completion(db: AsyncSession, chat: models.Chat, request: sche
     
     payload = {
         k: v for k, v in request.model_dump().items()
-        if v is not None and k not in ['api_key', 'base_url', 'message', 'response_prefill', 'request_body', 'stream']
+        if v is not None and k not in ['api_key', 'base_url', 'message', 'response_prefill', 'request_body', 'stream', 'regenerate']
     }
     payload["messages"] = api_messages
 
@@ -187,7 +226,11 @@ async def get_chat_completion(db: AsyncSession, chat: models.Chat, request: sche
             response_message_content = response.json()['choices'][0]['message']['content']
 
         final_message = (request.response_prefill or "") + response_message_content
-        await append_message_to_chat(db, chat.id, "assistant", final_message)
+        
+        if request.regenerate:
+            await add_version_to_last_message(db, chat.id, final_message)
+        else:
+            await append_message_to_chat(db, chat.id, "assistant", final_message)
         
     except httpx.HTTPStatusError as e:
         raise HTTPException(status_code=e.response.status_code, detail=f"API Error: {e.response.text}")
@@ -199,11 +242,10 @@ async def get_chat_completion(db: AsyncSession, chat: models.Chat, request: sche
 async def get_chat_completion_stream(db: AsyncSession, chat: models.Chat, request: schemas.ChatCompletionRequest):
     """
     Handles streaming LLM response. 
-    NOTE: User message MUST be saved before calling this function.
     """
     main_card = await db.get(models.MainCard, chat.main_card_id)
 
-    # 1. Prepare API Messages (using the chat.history which MUST already contain the user message)
+    # 1. Prepare API Messages
     api_messages = []
     if main_card.description:
         api_messages.append({"role": "system", "content": main_card.description})
@@ -217,8 +259,11 @@ async def get_chat_completion_stream(db: AsyncSession, chat: models.Chat, reques
     if main_card.example_response:
         api_messages.append({"role": "assistant", "content": main_card.example_response})
 
-    # Use the history currently in the DB
-    api_messages.extend(chat.history)
+    # Add existing chat history
+    # IMPORTANT: The chat.history already contains the user message (saved in main.py)
+    # or the full conversation context if regenerating.
+    for msg in chat.history:
+        api_messages.append({"role": msg["role"], "content": msg["content"]})
 
     if request.response_prefill:
         api_messages.append({"role": "assistant", "content": request.response_prefill})
@@ -232,7 +277,7 @@ async def get_chat_completion_stream(db: AsyncSession, chat: models.Chat, reques
 
     payload = {
         k: v for k, v in request.model_dump().items()
-        if v is not None and k not in ['api_key', 'base_url', 'message', 'response_prefill', 'request_body', 'stream']
+        if v is not None and k not in ['api_key', 'base_url', 'message', 'response_prefill', 'request_body', 'stream', 'regenerate']
     }
     payload["messages"] = api_messages
     payload["stream"] = True
@@ -271,12 +316,16 @@ async def get_chat_completion_stream(db: AsyncSession, chat: models.Chat, reques
     except Exception as e:
         yield f"data: Error: {str(e)}\n\n"
     finally:
-        # Save aggregated response to DB only if we got something
+        # Save aggregated response to DB
         if accumulated_content:
             try:
-                print("DEBUG: Saving assistant response to DB...")
-                await append_message_to_chat(db, chat.id, "assistant", (request.response_prefill or "") + accumulated_content)
-                print("DEBUG: Assistant response saved successfully.")
+                final_text = (request.response_prefill or "") + accumulated_content
+                if request.regenerate:
+                    print("DEBUG: Regenerating - adding version to last message.")
+                    await add_version_to_last_message(db, chat.id, final_text)
+                else:
+                    print("DEBUG: Normal generation - appending new message.")
+                    await append_message_to_chat(db, chat.id, "assistant", final_text)
             except Exception as e:
                 print(f"DEBUG: Critical Error saving assistant response: {str(e)}")
 

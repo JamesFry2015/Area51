@@ -133,10 +133,18 @@ const ChatPage = () => {
       await streamChatCompletion(chatId, requestBody, (chunk) => {
           setChat(prevChat => {
               const newHistory = [...prevChat.history];
-              const lastMsg = newHistory[newHistory.length - 1];
+              const lastIndex = newHistory.length - 1;
+              
+              // --- FIX: Create a shallow copy of the message object ---
+              const lastMsg = { ...newHistory[lastIndex] }; 
+
               if (lastMsg.role === 'assistant') {
                   lastMsg.content += chunk;
               }
+              
+              // Put the copy back into the array
+              newHistory[lastIndex] = lastMsg;
+
               return { ...prevChat, history: newHistory };
           });
       }, abortControllerRef.current.signal);

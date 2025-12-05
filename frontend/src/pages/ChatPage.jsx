@@ -124,7 +124,7 @@ const ChatPage = () => {
                 const updatedMsg = { ...lastHistoryMsg };
                 if (!updatedMsg.versions) updatedMsg.versions = [updatedMsg.content];
                 
-                // FIX: Create NEW version slot so MessageBubble sees empty content immediately
+                // Create NEW version slot so MessageBubble sees empty content immediately
                 const newVersionIndex = updatedMsg.versions.length;
                 updatedMsg.versions = [...updatedMsg.versions, '']; 
                 updatedMsg.current_version = newVersionIndex;
@@ -165,20 +165,17 @@ const ChatPage = () => {
               setChat(prevChat => {
                   const newHistory = [...prevChat.history];
                   const lastIndex = newHistory.length - 1;
-                  // Shallow copy the message object
                   const lastMsg = { ...newHistory[lastIndex] }; 
 
-                  // FIX: Create a shallow copy of the versions array to avoid mutating state directly
+                  // Create shallow copy of versions to safely mutate
                   const versions = lastMsg.versions ? [...lastMsg.versions] : [''];
                   if (!lastMsg.versions) lastMsg.current_version = 0;
 
-                  // Update the specific version slot we created
                   const currentVer = lastMsg.current_version || 0;
                   const currentContent = versions[currentVer] || '';
                   
                   versions[currentVer] = currentContent + chunk;
                   
-                  // Assign the new array back to the message object
                   lastMsg.versions = versions;
                   lastMsg.content = versions[currentVer];
                   
@@ -193,12 +190,10 @@ const ChatPage = () => {
           setChat(response.data);
       }
 
-      // Sync final state (important for DB IDs, etc.)
-      // For non-stream, we just did it. For stream, we do it now.
-      if (shouldStream) {
-          const freshChat = await apiClient.get(`/chats/${chatId}`);
-          setChat(freshChat.data);
-      }
+      // FIX: REMOVED the "Sync final state" block here.
+      // We rely on the local optimistic state because it is complete and accurate.
+      // Fetching immediately causes a race condition where we get stale data (empty message)
+      // before the backend finishes saving.
 
     } catch (err) {
         if (err.name === 'AbortError') return;
@@ -207,12 +202,10 @@ const ChatPage = () => {
             const hist = [...prev.history];
             const last = { ...hist[hist.length-1] };
             
-            // Append error to current version
             const currentVer = last.current_version || 0;
             const currentContent = last.versions?.[currentVer] || '';
             
             if (last.versions) {
-                // FIX: Ensure we copy array here too
                 const newVersions = [...last.versions];
                 newVersions[currentVer] = currentContent + `\n[${errorMessage}]`;
                 last.versions = newVersions;

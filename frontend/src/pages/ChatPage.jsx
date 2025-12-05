@@ -165,19 +165,22 @@ const ChatPage = () => {
               setChat(prevChat => {
                   const newHistory = [...prevChat.history];
                   const lastIndex = newHistory.length - 1;
+                  // Shallow copy the message object
                   const lastMsg = { ...newHistory[lastIndex] }; 
 
-                  if (!lastMsg.versions) {
-                      lastMsg.versions = [''];
-                      lastMsg.current_version = 0;
-                  }
+                  // FIX: Create a shallow copy of the versions array to avoid mutating state directly
+                  const versions = lastMsg.versions ? [...lastMsg.versions] : [''];
+                  if (!lastMsg.versions) lastMsg.current_version = 0;
 
                   // Update the specific version slot we created
                   const currentVer = lastMsg.current_version || 0;
-                  const currentContent = lastMsg.versions[currentVer] || '';
+                  const currentContent = versions[currentVer] || '';
                   
-                  lastMsg.versions[currentVer] = currentContent + chunk;
-                  lastMsg.content = lastMsg.versions[currentVer];
+                  versions[currentVer] = currentContent + chunk;
+                  
+                  // Assign the new array back to the message object
+                  lastMsg.versions = versions;
+                  lastMsg.content = versions[currentVer];
                   
                   newHistory[lastIndex] = lastMsg;
                   return { ...prevChat, history: newHistory };
@@ -209,7 +212,10 @@ const ChatPage = () => {
             const currentContent = last.versions?.[currentVer] || '';
             
             if (last.versions) {
-                last.versions[currentVer] = currentContent + `\n[${errorMessage}]`;
+                // FIX: Ensure we copy array here too
+                const newVersions = [...last.versions];
+                newVersions[currentVer] = currentContent + `\n[${errorMessage}]`;
+                last.versions = newVersions;
             } else {
                 last.content += `\n[${errorMessage}]`;
             }

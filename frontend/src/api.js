@@ -35,7 +35,6 @@ export const streamChatCompletion = async (chatId, payload, onChunk, signal) => 
             'Content-Type': 'application/json',
             'Authorization': token ? `Bearer ${token}` : '',
         },
-        // FIX: Removed "stream: true" override. Payload now dictates this.
         body: JSON.stringify(payload),
         signal: signal,
     });
@@ -47,32 +46,42 @@ export const streamChatCompletion = async (chatId, payload, onChunk, signal) => 
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
+    let buffer = '';
+
+    const processLine = (line) => {
+        if (line.startsWith('data: ')) {
+            const data = line.slice(6).trim();
+            if (data === '[DONE]') return true; // Signal to stop
+            try {
+                if (data.startsWith('Error:')) {
+                     onChunk(data); 
+                } else {
+                    const json = JSON.parse(data);
+                    const content = json.choices?.[0]?.delta?.content || '';
+                    if (content) onChunk(content);
+                }
+            } catch (e) {
+                 console.warn("Failed to parse SSE data", data);
+            }
+        } else if (line.startsWith('Error: ')) {
+             onChunk(line);
+        }
+        return false;
+    };
 
     try {
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
-            const chunk = decoder.decode(value, { stream: true });
+            
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            
+            // Keep the last part in the buffer as it might be incomplete
+            buffer = lines.pop(); 
 
-            const lines = chunk.split('\n');
             for (const line of lines) {
-                if (line.startsWith('data: ')) {
-                    const data = line.slice(6).trim();
-                    if (data === '[DONE]') continue;
-                    try {
-                        if (data.startsWith('Error:')) {
-                             onChunk(data); 
-                        } else {
-                            const json = JSON.parse(data);
-                            const content = json.choices?.[0]?.delta?.content || '';
-                            if (content) onChunk(content);
-                        }
-                    } catch (e) {
-                         console.warn("Failed to parse SSE data", data);
-                    }
-                } else if (line.startsWith('Error: ')) {
-                     onChunk(line);
-                }
+                if (processLine(line)) return;
             }
         }
     } catch (error) {
@@ -80,6 +89,11 @@ export const streamChatCompletion = async (chatId, payload, onChunk, signal) => 
              // Request aborted by user
         } else {
              throw error;
+        }
+    } finally {
+        // FIX: Process any remaining text in the buffer when the stream ends
+        if (buffer.trim()) {
+            processLine(buffer.trim());
         }
     }
 };

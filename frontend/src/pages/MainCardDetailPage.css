@@ -89,27 +89,46 @@
   flex-direction: column;
   gap: 15px;
 }
+
+/* --- UPDATED: Grid Layout for Session Item --- */
 .session-item {
   background-color: #333;
   padding: 15px;
   border-radius: 6px;
   border: 1px solid #444;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
+  
+  /* Using Grid to strictly control position */
+  display: grid;
+  grid-template-columns: 1fr auto; /* Left col expands, Right col fits content */
+  grid-template-areas: 
+    "title actions" 
+    "memory memory"; /* Memory spans both columns on the second row */
   align-items: center;
+  gap: 5px 15px; /* 5px row gap, 15px column gap */
 }
+
 .session-link {
+  grid-area: title;
   color: #e0e0e0;
   text-decoration: none;
   font-weight: 500;
-  flex-grow: 1;
+  min-width: 0; /* Allows ellipsis to work */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+
+.session-actions {
+  grid-area: actions;
+  display: flex;
+  align-items: center;
+}
+
 .chat-memory {
+  grid-area: memory;
+  margin: 0; /* Removed top margin as grid gap handles it */
   font-size: 0.8rem;
   color: #888;
-  margin: 5px 0 0 0;
-  width: 100%;
   font-style: italic;
   white-space: nowrap;
   overflow: hidden;
@@ -124,9 +143,17 @@
   border-radius: 4px;
   margin-left: 10px;
   cursor: pointer;
+  transition: all 0.2s;
 }
 
+.session-actions button:hover {
+  background-color: #444;
+  color: white;
+}
+
+/* Rename form inherits the full width of the grid container */
 .rename-form {
+  grid-column: 1 / -1; /* Span full width */
   display: flex;
   gap: 10px;
   width: 100%;

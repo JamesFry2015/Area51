@@ -24,7 +24,7 @@
   word-wrap: break-word;
   position: relative;
   min-height: 24px;
-  width: 100%;
+  max-width: 100%;
 }
 
 .message-bubble.user {
@@ -44,20 +44,111 @@
     color: #ffcccc;
 }
 
+/* --- IMAGE DISPLAY IN BUBBLE --- */
+.message-images {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+    max-width: 100%; /* Prevent container overflow */
+}
+
+.message-images img {
+    /* FIX: Force dimensions with !important */
+    max-width: 300px !important;
+    max-height: 300px !important;
+    width: auto;
+    height: auto;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.1);
+    object-fit: contain;
+    background-color: #222;
+    cursor: pointer;
+}
+
+/* --- NEW: Reasoning / Thinking Styles --- */
+.reasoning-wrapper {
+  margin-bottom: 10px;
+  border-bottom: 1px solid #444;
+  padding-bottom: 5px;
+}
+
+.reasoning-toggle {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 0;
+  transition: color 0.2s;
+  width: 100%;
+  text-align: left;
+}
+
+.reasoning-toggle:hover {
+  color: #bbb;
+}
+
+.reasoning-toggle.pulsing {
+  animation: pulseColor 2s infinite;
+}
+
+@keyframes pulseColor {
+  0% { color: #888; }
+  50% { color: #bbaadd; }
+  100% { color: #888; }
+}
+
+.thinking-spinner {
+  animation: spin 2s linear infinite;
+  display: inline-block;
+  font-size: 0.8rem;
+}
+
+@keyframes spin { 100% { transform: rotate(360deg); } }
+
+.reasoning-content {
+  background-color: #252525;
+  border-left: 3px solid #666;
+  padding: 10px;
+  border-radius: 4px;
+  margin-top: 5px;
+  font-size: 0.9rem;
+  color: #ccc;
+  font-style: italic;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
 /* --- Footer Actions (Carousel & Buttons) --- */
 .message-footer {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 10px;
   padding: 2px 5px;
   margin-top: 2px;
-  opacity: 0; /* Hidden by default */
+  opacity: 0;
   transition: opacity 0.2s ease-in-out;
 }
 
-.message-container:hover .message-footer {
-  opacity: 1; /* Show on hover */
+.assistant-align .message-footer { justify-content: flex-start; }
+.message-container:hover .message-footer { opacity: 1; }
+
+.token-badge {
+    font-size: 0.75rem;
+    color: #666;
+    background-color: rgba(0,0,0,0.2);
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-right: auto;
 }
+.user-align .token-badge { margin-right: 10px; margin-left: 0; }
+.assistant-align .token-badge { margin-right: 10px; }
 
 /* Version Carousel */
 .version-nav {
@@ -70,69 +161,21 @@
   padding: 2px 6px;
   border-radius: 6px;
 }
-
-.version-nav button {
-  background: none;
-  border: none;
-  color: #bbb;
-  cursor: pointer;
-  padding: 0 4px;
-  font-size: 1rem;
-  line-height: 1;
-}
-
+.version-nav button { background: none; border: none; color: #bbb; cursor: pointer; padding: 0 4px; font-size: 1rem; line-height: 1; }
 .version-nav button:hover:not(:disabled) { color: white; }
 .version-nav button:disabled { color: #444; cursor: default; }
 
 /* Action Buttons */
-.action-buttons {
-  display: flex;
-  gap: 5px;
-}
-
-.action-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: #888;
-  font-size: 1rem;
-  padding: 2px;
-  transition: color 0.2s;
-}
-
+.action-buttons { display: flex; gap: 5px; }
+.action-btn { background: none; border: none; cursor: pointer; color: #888; font-size: 1rem; padding: 2px; transition: color 0.2s; }
 .action-btn:hover { color: #fff; }
 .delete-icon:hover { color: #ff4d4d; }
 
 /* --- Edit Mode --- */
-.edit-mode-container {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.edit-textarea {
-  width: 100%;
-  background-color: #222; /* Slightly darker than bubble */
-  border: 1px solid #555;
-  color: white;
-  padding: 10px;
-  border-radius: 8px;
-  font-family: inherit;
-  resize: none;
-}
-
-.edit-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.edit-actions button {
-  font-size: 0.85rem;
-  padding: 6px 12px;
-  border-radius: 6px;
-}
-
+.edit-mode-container { display: flex; flex-direction: column; gap: 10px; }
+.edit-textarea { width: 100%; background-color: #222; border: 1px solid #555; color: white; padding: 10px; border-radius: 8px; font-family: inherit; resize: none; }
+.edit-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.edit-actions button { font-size: 0.85rem; padding: 6px 12px; border-radius: 6px; }
 .save-btn { background-color: #28a745; color: white; border: none; }
 .save-btn:hover { background-color: #218838; }
 .cancel-btn { background-color: #444; color: white; border: none; }
@@ -154,3 +197,42 @@
 .typing-dot:nth-child(1) { animation-delay: -0.32s; }
 .typing-dot:nth-child(2) { animation-delay: -0.16s; }
 @keyframes typingBounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+
+/* --- Markdown Tables --- */
+.message-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10px 0;
+  font-size: 0.9em;
+}
+
+.message-content th,
+.message-content td {
+  padding: 8px 12px;
+  border: 1px solid #555;
+  text-align: left;
+}
+
+.message-content th {
+  background-color: #2d2d2d;
+  font-weight: 600;
+  color: #fff;
+}
+
+.message-content tr:nth-child(even) {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.message-content tr:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* User Bubble Table Adjustment (Lighter Borders) */
+.message-bubble.user .message-content th,
+.message-bubble.user .message-content td {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.message-bubble.user .message-content th {
+  background-color: rgba(255, 255, 255, 0.2);
+}

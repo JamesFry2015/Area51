@@ -39,8 +39,6 @@ const SettingsPanel = ({
   const handleSaveApiConfig = async (configData) => {
     try {
       const payload = { ...configData };
-      if (payload.api_key === '') delete payload.api_key;
-      
       const isActive = configToEdit && settings.model === configToEdit.model && settings.baseUrl === configToEdit.proxy_url;
 
       if (configToEdit) {
@@ -53,7 +51,7 @@ const SettingsPanel = ({
         onSettingChange({
           model: configData.model,
           baseUrl: configData.proxy_url,
-          apiKey: '',
+          apiKey: configData.api_key || '',
           requestBody: configData.request_body || null
         });
       }
@@ -76,7 +74,7 @@ const SettingsPanel = ({
     onSettingChange({
       model: config.model,
       baseUrl: config.proxy_url,
-      apiKey: '',
+      apiKey: config.api_key || '',
       requestBody: config.request_body || null
     });
   };
@@ -182,6 +180,12 @@ const GenerationSettingsForm = ({ onBack, onClose, settings, onSettingChange }) 
     <div className="settings-content-wrapper">
       <div className="settings-header"><button onClick={onBack} className="back-btn">‹</button><h2>Generation Settings</h2><button onClick={onClose} className="close-btn">×</button></div>
       <div className="settings-content generation-form">
+        {/* NEW: Streaming Toggle */}
+        <div className="toggle-group">
+          <label htmlFor="stream_toggle">Stream Response</label>
+          <input type="checkbox" id="stream_toggle" name="stream" checked={settings.stream !== false} onChange={handleToggle} />
+        </div>
+
         <SliderInput label="Temperature" name="temperature" value={settings.temperature} min={0} max={2} step={0.1} onChange={handleSliderChange} />
         <SliderInput label="Max Tokens" name="max_tokens" value={settings.max_tokens} min={0} max={10000} step={50} onChange={handleNumberChange} />
         <SliderInput label="Context Window" name="context_window" value={settings.context_window} min={0} max={2000000} step={1000} onChange={handleNumberChange} />
@@ -217,7 +221,7 @@ const ConfigForm = ({ onSave, onCancel, onClose, initialData }) => {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (initialData) setConfig({ ...initialData, api_key: '', request_body: initialData.request_body || '' });
+    if (initialData) setConfig({ ...initialData, api_key: initialData.api_key || '', request_body: initialData.request_body || '' });
     else setConfig({ name: '', model: '', proxy_url: '', api_key: '', custom_prompt: '', request_body: '' });
   }, [initialData]);
 
@@ -238,7 +242,6 @@ const ConfigForm = ({ onSave, onCancel, onClose, initialData }) => {
     }
 
     const payload = { ...config };
-    if (initialData && !payload.api_key) delete payload.api_key;
     onSave(payload);
   };
 
@@ -254,7 +257,8 @@ const ConfigForm = ({ onSave, onCancel, onClose, initialData }) => {
           <label>Configuration Name</label><input name="name" type="text" placeholder="My Custom Proxy" value={config.name} onChange={handleChange} />
           <label>Model Name</label><input name="model" type="text" placeholder="gpt-4, claude-3-opus, etc." value={config.model} onChange={handleChange} />
           <label>Proxy URL</label><input name="proxy_url" type="text" placeholder="https://your.url.com/v1" value={config.proxy_url} onChange={handleChange} />
-          <label>API Key (Optional)</label><input name="api_key" type="password" placeholder={initialData ? "Leave blank to keep existing key" : "Proxy API key"} value={config.api_key} onChange={handleChange} />
+          <label>API Key</label>
+          <input name="api_key" type="text" placeholder="Proxy API key" value={config.api_key} onChange={handleChange} />
           <label>Request Body (JSON)</label><textarea name="request_body" placeholder='{"key": "value"}' rows="4" value={config.request_body} onChange={handleChange}></textarea>
           {error && <span className="error-text" style={{color: 'red', fontSize: '0.9em', display: 'block', marginBottom: '10px'}}>{error}</span>}
           <label>Custom Prompt (Optional)</label><textarea name="custom_prompt" placeholder="Custom prompt template..." rows="4" value={config.custom_prompt} onChange={handleChange}></textarea>

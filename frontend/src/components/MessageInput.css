@@ -6,9 +6,48 @@
     margin: 0 auto;
 }
 
+/* Image Preview Container */
+.image-preview {
+    position: relative;
+    width: fit-content;
+    margin-bottom: 5px;
+    margin-left: 10px;
+    /* FIX: Ensure container doesn't overflow */
+    max-width: 100%; 
+}
+
+/* FIX: Restrict the preview image size */
+.image-preview img {
+    height: 80px; /* Fixed height for thumbnail feel */
+    width: auto;
+    border-radius: 8px;
+    border: 1px solid #555;
+    background-color: #222;
+    object-fit: contain;
+    display: block; /* Removes bottom spacing issues */
+}
+
+.image-preview .remove-btn {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background-color: #d9534f;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
 .message-input-container {
   display: flex;
-  align-items: flex-end; /* Align to bottom so textarea grows up */
+  align-items: flex-end; 
   gap: 10px;
   background-color: #333;
   padding: 10px;
@@ -21,7 +60,7 @@
   background-color: transparent;
   border: none;
   color: white;
-  resize: none; /* Auto-resizing handles this */
+  resize: none; 
   font-family: inherit;
   font-size: 1rem;
   line-height: 1.4;
@@ -32,6 +71,11 @@
 
 .message-textarea:focus {
   outline: none;
+}
+
+.input-actions {
+    display: flex;
+    gap: 8px;
 }
 
 .input-actions button {

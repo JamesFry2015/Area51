@@ -5,12 +5,12 @@ from typing import List, Optional, Dict, Any
 class Message(BaseModel):
     role: str
     content: str
-    # New fields for ChatGPT-style versioning
     versions: Optional[List[str]] = []
     current_version: Optional[int] = 0
+    images: Optional[List[str]] = []
 
 class ChatCompletionRequest(BaseModel):
-    message: Optional[str] = None # Optional because we might just be regenerating
+    message: Optional[str] = None 
     model: str
     base_url: str
     api_key: Optional[str] = None
@@ -24,8 +24,8 @@ class ChatCompletionRequest(BaseModel):
     response_prefill: Optional[str] = None
     request_body: Optional[Dict[str, Any]] = None
     stream: bool = False
-    # New flag to tell backend: "Don't append, just add a version to the last message"
-    regenerate: bool = False 
+    regenerate: bool = False
+    images: Optional[List[str]] = None
 
 # --- Chat & MainCard Schemas ---
 class ChatBase(BaseModel):
@@ -93,6 +93,8 @@ class ApiConfigUpdate(BaseModel):
 class ApiConfigSchema(ApiConfigBase):
     id: int
     owner_id: int
+    # FIX: Explicitly include api_key in the response schema so frontend can see it
+    api_key: Optional[str] = None 
     class Config:
         from_attributes = True
 

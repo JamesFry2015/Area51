@@ -129,9 +129,9 @@ async def chat_completion(chat_id: int, request: schemas.ChatCompletionRequest, 
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
 
-    # Only save user message if we are NOT regenerating
+    # Pass images to the save function!
     if request.message and not request.regenerate:
-        chat = await crud.append_message_to_chat(db, chat_id, "user", request.message)
+        chat = await crud.append_message_to_chat(db, chat_id, "user", request.message, images=request.images)
 
     if request.stream:
         return StreamingResponse(

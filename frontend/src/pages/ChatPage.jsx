@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import apiClient, { streamChatCompletion } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import MessageBubble from '../components/MessageBubble.jsx';
 import MessageInput from '../components/MessageInput.jsx';
 import SettingsPanel from '../components/settingspanel.jsx';
+import ImageModal from '../components/ImageModal.jsx';
 import './ChatPage.css';
 
 const ChatPage = () => {
@@ -16,6 +17,8 @@ const ChatPage = () => {
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  
+  const [previewImage, setPreviewImage] = useState(null);
 
   // Settings
   const [advancedSettings, setAdvancedSettings] = useState(() => {
@@ -26,6 +29,7 @@ const ChatPage = () => {
   const [generationSettings, setGenerationSettings] = useState(() => {
     const saved = localStorage.getItem('generationSettings');
     const defaults = {
+      stream: true, // Default to true
       temperature: 1.0, max_tokens: 10000, context_window: 2000000,
       top_k: 0, top_p: 1.0, repetition_penalty: 1.0, frequency_penalty: 0.0,
       response_prefill_enabled: false, response_prefill: '',
@@ -33,7 +37,24 @@ const ChatPage = () => {
     return saved ? { ...defaults, ...JSON.parse(saved) } : defaults;
   });
 
-  // Auto-scroll
+  useEffect(() => {
+    localStorage.setItem('advancedSettings', JSON.stringify(advancedSettings));
+  }, [advancedSettings]);
+
+  useEffect(() => {
+    localStorage.setItem('generationSettings', JSON.stringify(generationSettings));
+  }, [generationSettings]);
+
+  // Calculate Total Tokens
+  const totalTokens = useMemo(() => {
+    if (!chat?.history) return 0;
+    return chat.history.reduce((acc, msg) => {
+        const versions = msg.versions || [msg.content];
+        const currentContent = versions[msg.current_version || 0] || '';
+        return acc + Math.ceil(currentContent.length / 4);
+    }, 0);
+  }, [chat?.history]);
+
   const messagesEndRef = useRef(null);
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -75,8 +96,8 @@ const ChatPage = () => {
     }
   };
 
-  const executeSendMessage = async (messageContent, isRegenerate = false) => {
-    if (!messageContent && !isRegenerate) return;
+  const executeSendMessage = async (messageContent, image = null, isRegenerate = false) => {
+    if (!messageContent && !image && !isRegenerate) return;
     setError('');
 
     if (!advancedSettings.model || !advancedSettings.baseUrl) {
@@ -87,10 +108,7 @@ const ChatPage = () => {
     setIsSending(true);
     abortControllerRef.current = new AbortController();
 
-    // Determine the API behavior based on CURRENT history state
     const lastMsg = chat.history.length > 0 ? chat.history[chat.history.length - 1] : null;
-    // We only use the 'regenerate' API flag if we are truly regenerating an ASSISTANT message.
-    // If the last message is USER, we want the API to perform a standard completion (appending a new assistant msg).
     const apiRegenerate = isRegenerate && lastMsg?.role === 'assistant';
 
     // 1. Optimistic Update
@@ -101,72 +119,83 @@ const ChatPage = () => {
             const lastHistoryMsg = newHistory[newHistory.length - 1];
             
             if (lastHistoryMsg.role === 'user') {
-                // Case: User edited their message (or we deleted the assistant response)
-                // We need to APPEND a new assistant placeholder
                 newHistory.push({ role: 'assistant', content: '', versions: [''], current_version: 0 });
             } else {
-                // Case: Regenerating an existing assistant response
-                // Add new version slot
                 const updatedMsg = { ...lastHistoryMsg };
                 if (!updatedMsg.versions) updatedMsg.versions = [updatedMsg.content];
                 
-                // Visual placeholder for new content
+                // FIX: Create NEW version slot so MessageBubble sees empty content immediately
+                const newVersionIndex = updatedMsg.versions.length;
+                updatedMsg.versions = [...updatedMsg.versions, '']; 
+                updatedMsg.current_version = newVersionIndex;
                 updatedMsg.content = ''; 
+                
                 newHistory[newHistory.length - 1] = updatedMsg;
             }
         } else {
-            // Normal new message case
-            newHistory.push({ role: 'user', content: messageContent, versions: [messageContent], current_version: 0 });
-            // Add placeholder for Assistant
+            newHistory.push({ 
+                role: 'user', 
+                content: messageContent, 
+                versions: [messageContent], 
+                current_version: 0,
+                images: image ? [image] : [] 
+            });
             newHistory.push({ role: 'assistant', content: '', versions: [''], current_version: 0 });
         }
         return { ...prevChat, history: newHistory };
     });
 
     try {
+      const shouldStream = generationSettings.stream !== false;
       const requestBody = {
-        // If regenerating, we send null message (context comes from history). 
-        // If new message, we send content.
         message: !isRegenerate ? messageContent : null,
+        images: image ? [image] : [],
         model: advancedSettings.model,
         base_url: advancedSettings.baseUrl,
         api_key: advancedSettings.apiKey || null,
         ...generationSettings,
+        stream: shouldStream,
         response_prefill: generationSettings.response_prefill_enabled ? generationSettings.response_prefill : null,
         request_body: advancedSettings.requestBody ? JSON.parse(advancedSettings.requestBody) : null,
         regenerate: apiRegenerate
       };
 
-      await streamChatCompletion(chatId, requestBody, (chunk) => {
-          setChat(prevChat => {
-              const newHistory = [...prevChat.history];
-              const lastIndex = newHistory.length - 1;
-              const lastMsg = { ...newHistory[lastIndex] }; 
+      if (shouldStream) {
+          await streamChatCompletion(chatId, requestBody, (chunk) => {
+              setChat(prevChat => {
+                  const newHistory = [...prevChat.history];
+                  const lastIndex = newHistory.length - 1;
+                  const lastMsg = { ...newHistory[lastIndex] }; 
 
-              // Ensure versions structure exists
-              if (!lastMsg.versions) {
-                  lastMsg.versions = [''];
-                  lastMsg.current_version = 0;
-              }
+                  if (!lastMsg.versions) {
+                      lastMsg.versions = [''];
+                      lastMsg.current_version = 0;
+                  }
 
-              if (apiRegenerate) {
-                  // We are adding to a NEW version.
-                  // Since we are streaming, we just update the 'content' display buffer.
-                  // The backend will persist this as a new version entry when done.
-                  lastMsg.content += chunk;
-              } else {
-                  // Standard append or "continue" after user edit
-                  lastMsg.content += chunk;
-              }
-              
-              newHistory[lastIndex] = lastMsg;
-              return { ...prevChat, history: newHistory };
-          });
-      }, abortControllerRef.current.signal);
+                  // Update the specific version slot we created
+                  const currentVer = lastMsg.current_version || 0;
+                  const currentContent = lastMsg.versions[currentVer] || '';
+                  
+                  lastMsg.versions[currentVer] = currentContent + chunk;
+                  lastMsg.content = lastMsg.versions[currentVer];
+                  
+                  newHistory[lastIndex] = lastMsg;
+                  return { ...prevChat, history: newHistory };
+              });
+          }, abortControllerRef.current.signal);
+      } else {
+          // Non-streaming: Wait for full response
+          const response = await apiClient.post(`/chats/${chatId}/messages`, requestBody);
+          // Backend returns the fully updated chat object
+          setChat(response.data);
+      }
 
-      // Refresh chat to sync versions from DB after generation
-      const freshChat = await apiClient.get(`/chats/${chatId}`);
-      setChat(freshChat.data);
+      // Sync final state (important for DB IDs, etc.)
+      // For non-stream, we just did it. For stream, we do it now.
+      if (shouldStream) {
+          const freshChat = await apiClient.get(`/chats/${chatId}`);
+          setChat(freshChat.data);
+      }
 
     } catch (err) {
         if (err.name === 'AbortError') return;
@@ -174,7 +203,17 @@ const ChatPage = () => {
         setChat(prev => {
             const hist = [...prev.history];
             const last = { ...hist[hist.length-1] };
-            last.content += `\n[${errorMessage}]`;
+            
+            // Append error to current version
+            const currentVer = last.current_version || 0;
+            const currentContent = last.versions?.[currentVer] || '';
+            
+            if (last.versions) {
+                last.versions[currentVer] = currentContent + `\n[${errorMessage}]`;
+            } else {
+                last.content += `\n[${errorMessage}]`;
+            }
+            
             hist[hist.length-1] = last;
             return { ...prev, history: hist };
         });
@@ -184,18 +223,15 @@ const ChatPage = () => {
     }
   };
 
-  const handleSendMessage = (content) => executeSendMessage(content, false);
-  const handleRegenerate = () => executeSendMessage(null, true);
+  const handleSendMessage = (content, image) => executeSendMessage(content, image, false);
+  const handleRegenerate = () => executeSendMessage(null, null, true);
 
   const handleEditMessage = async (index, newContent) => {
-      // 1. Truncate future history (ChatGPT style: editing forks the chat)
       const chatCopy = { ...chat };
-      // Keep everything up to the edited message
       const truncatedHistory = chatCopy.history.slice(0, index + 1); 
       
       const messageRole = truncatedHistory[index].role;
 
-      // Update the content and add to versions
       truncatedHistory[index] = { 
           ...truncatedHistory[index], 
           content: newContent,
@@ -203,28 +239,19 @@ const ChatPage = () => {
           current_version: (truncatedHistory[index].versions?.length || 0)
       };
 
-      // Update DB with truncated history
       try {
           await apiClient.patch(`/chats/${chatId}`, { history: truncatedHistory });
-          
-          // Force state update
           setChat({ ...chat, history: truncatedHistory });
           
-          // If we edited a USER message, we want to regenerate the assistant's reply.
-          // If we edited an ASSISTANT message, we just want to save the edit (no regen).
           if (messageRole === 'user') {
-              // Trigger generation. "isRegenerate=true" allows the logic to handle "Last msg is User -> Append Assistant"
-              executeSendMessage(null, true); 
+              executeSendMessage(null, null, true); 
           }
-          // else: do nothing, we just saved the assistant's new text.
-
       } catch (e) {
           alert("Failed to update chat.");
       }
   };
 
   const handleVersionChange = async (index, newVersionIndex) => {
-      // Update local state
       const newHistory = [...chat.history];
       const msg = { ...newHistory[index] };
       msg.current_version = newVersionIndex;
@@ -232,8 +259,6 @@ const ChatPage = () => {
       newHistory[index] = msg;
       
       setChat({ ...chat, history: newHistory });
-
-      // Persist to DB so it remembers where you left off
       await apiClient.patch(`/chats/${chatId}`, { history: newHistory });
   };
 
@@ -258,11 +283,11 @@ const ChatPage = () => {
     }
   };
 
-  // Keyboard shortcuts
   useEffect(() => {
       const handleKeyDown = (e) => {
           if (e.key === 'Escape') {
               setIsSettingsOpen(false);
+              setPreviewImage(null);
           }
       };
       window.addEventListener('keydown', handleKeyDown);
@@ -276,7 +301,10 @@ const ChatPage = () => {
     <div className="chat-page-container">
       <header className="chat-header">
         <Link to={`/main-card/${chat?.main_card_id}`} className="back-link">← Back</Link>
-        <h1>{chat?.name || 'Chat'}</h1>
+        <div style={{textAlign: 'center'}}>
+            <h1>{chat?.name || 'Chat'}</h1>
+            <span style={{fontSize: '0.8rem', color: '#888'}}>Total Context: {totalTokens} tokens</span>
+        </div>
         <button className="settings-btn" onClick={() => setIsSettingsOpen(true)}>⚙️</button>
       </header>
       
@@ -292,6 +320,7 @@ const ChatPage = () => {
               onDelete={handleDeleteMessage}
               onRegenerate={handleRegenerate}
               onVersionChange={handleVersionChange}
+              onImageClick={setPreviewImage}
             />
           ))}
           <div ref={messagesEndRef} />
@@ -309,6 +338,11 @@ const ChatPage = () => {
         onGenerationSettingsChange={setGenerationSettings}
         chatData={chat}
         onChatDataChange={handleChatDataChange}
+      />
+
+      <ImageModal 
+        src={previewImage} 
+        onClose={() => setPreviewImage(null)} 
       />
     </div>
   );

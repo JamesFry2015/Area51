@@ -10,7 +10,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from . import models, schemas
 
 # --- Helper: Safe Message Appender ---
-async def append_message_to_chat(db: AsyncSession, chat_id: int, role: str, content: str):
+async def append_message_to_chat(db: AsyncSession, chat_id: int, role: str, content: str, images: list = None):
     """Safely appends a message to the chat history and commits it."""
     result = await db.execute(select(models.Chat).filter(models.Chat.id == chat_id))
     chat = result.scalars().first()
@@ -20,12 +20,12 @@ async def append_message_to_chat(db: AsyncSession, chat_id: int, role: str, cont
 
     current_history = list(chat.history) if chat.history else []
     
-    # Initialize versioning structure
     new_message = {
         "role": role,
         "content": content,
         "versions": [content],
-        "current_version": 0
+        "current_version": 0,
+        "images": images or []
     }
     
     current_history.append(new_message)
@@ -46,19 +46,16 @@ async def add_version_to_last_message(db: AsyncSession, chat_id: int, content: s
 
     current_history = list(chat.history)
     last_msg_index = len(current_history) - 1
-    last_msg = current_history[last_msg_index] # This is a dict
+    last_msg = current_history[last_msg_index]
 
-    # Ensure keys exist (migration for old messages)
     if "versions" not in last_msg:
         last_msg["versions"] = [last_msg["content"]]
         last_msg["current_version"] = 0
     
-    # Add new version
     last_msg["versions"].append(content)
     last_msg["current_version"] = len(last_msg["versions"]) - 1
-    last_msg["content"] = content # Update main content display
+    last_msg["content"] = content
     
-    # Update list
     current_history[last_msg_index] = last_msg
     chat.history = current_history
     
@@ -171,9 +168,8 @@ async def create_chat_in_main_card(db: AsyncSession, main_card_id: int):
     return db_chat
 
 async def get_chat_completion(db: AsyncSession, chat: models.Chat, request: schemas.ChatCompletionRequest):
-    # If not regenerating, save user message
     if not request.regenerate and request.message:
-        await append_message_to_chat(db, chat.id, "user", request.message)
+        await append_message_to_chat(db, chat.id, "user", request.message, images=request.images)
         await db.refresh(chat) 
 
     main_card = await db.get(models.MainCard, chat.main_card_id)
@@ -191,9 +187,21 @@ async def get_chat_completion(db: AsyncSession, chat: models.Chat, request: sche
     if main_card.example_response:
         api_messages.append({"role": "assistant", "content": main_card.example_response})
     
-    # Use current history. If regenerating, the history already contains the user prompt.
+    # Process history for images
     for msg in chat.history:
-        api_messages.append({"role": msg["role"], "content": msg["content"]})
+        content = msg.get("content", "")
+        images = msg.get("images", [])
+        
+        if images:
+            content_list = [{"type": "text", "text": content}]
+            for img in images:
+                content_list.append({
+                    "type": "image_url",
+                    "image_url": {"url": img}
+                })
+            api_messages.append({"role": msg["role"], "content": content_list})
+        else:
+            api_messages.append({"role": msg["role"], "content": content})
 
     if request.response_prefill:
         api_messages.append({"role": "assistant", "content": request.response_prefill})
@@ -206,7 +214,7 @@ async def get_chat_completion(db: AsyncSession, chat: models.Chat, request: sche
     
     payload = {
         k: v for k, v in request.model_dump().items()
-        if v is not None and k not in ['api_key', 'base_url', 'message', 'response_prefill', 'request_body', 'stream', 'regenerate']
+        if v is not None and k not in ['api_key', 'base_url', 'message', 'response_prefill', 'request_body', 'stream', 'regenerate', 'images']
     }
     payload["messages"] = api_messages
 
@@ -240,12 +248,8 @@ async def get_chat_completion(db: AsyncSession, chat: models.Chat, request: sche
     return chat
 
 async def get_chat_completion_stream(db: AsyncSession, chat: models.Chat, request: schemas.ChatCompletionRequest):
-    """
-    Handles streaming LLM response. 
-    """
     main_card = await db.get(models.MainCard, chat.main_card_id)
 
-    # 1. Prepare API Messages
     api_messages = []
     if main_card.description:
         api_messages.append({"role": "system", "content": main_card.description})
@@ -259,11 +263,21 @@ async def get_chat_completion_stream(db: AsyncSession, chat: models.Chat, reques
     if main_card.example_response:
         api_messages.append({"role": "assistant", "content": main_card.example_response})
 
-    # Add existing chat history
-    # IMPORTANT: The chat.history already contains the user message (saved in main.py)
-    # or the full conversation context if regenerating.
+    # Process history for images
     for msg in chat.history:
-        api_messages.append({"role": msg["role"], "content": msg["content"]})
+        content = msg.get("content", "")
+        images = msg.get("images", [])
+        
+        if images:
+            content_list = [{"type": "text", "text": content}]
+            for img in images:
+                content_list.append({
+                    "type": "image_url",
+                    "image_url": {"url": img}
+                })
+            api_messages.append({"role": msg["role"], "content": content_list})
+        else:
+            api_messages.append({"role": msg["role"], "content": content})
 
     if request.response_prefill:
         api_messages.append({"role": "assistant", "content": request.response_prefill})
@@ -277,7 +291,7 @@ async def get_chat_completion_stream(db: AsyncSession, chat: models.Chat, reques
 
     payload = {
         k: v for k, v in request.model_dump().items()
-        if v is not None and k not in ['api_key', 'base_url', 'message', 'response_prefill', 'request_body', 'stream', 'regenerate']
+        if v is not None and k not in ['api_key', 'base_url', 'message', 'response_prefill', 'request_body', 'stream', 'regenerate', 'images']
     }
     payload["messages"] = api_messages
     payload["stream"] = True
@@ -293,7 +307,10 @@ async def get_chat_completion_stream(db: AsyncSession, chat: models.Chat, reques
             async with client.stream("POST", request.base_url, headers=headers, json=payload) as response:
                 if response.status_code != 200:
                     error_text = await response.aread()
-                    yield f"data: Error: API responded with status {response.status_code}: {error_text.decode('utf-8')}\n\n"
+                    error_msg = f"Error: API responded with status {response.status_code}: {error_text.decode('utf-8')}"
+                    yield f"data: {error_msg}\n\n"
+                    # Capture the error to save it
+                    accumulated_content = error_msg 
                     return
 
                 async for chunk in response.aiter_lines():
@@ -312,19 +329,25 @@ async def get_chat_completion_stream(db: AsyncSession, chat: models.Chat, reques
                         except Exception:
                             pass
     except httpx.ConnectError:
-        yield f"data: Error: Could not connect to the API URL. Check the URL in settings.\n\n"
+        error_msg = "Error: Could not connect to the API URL. Check the URL in settings."
+        yield f"data: {error_msg}\n\n"
+        accumulated_content = error_msg
     except Exception as e:
-        yield f"data: Error: {str(e)}\n\n"
+        error_msg = f"Error: {str(e)}"
+        yield f"data: {error_msg}\n\n"
+        # Fix: Ensure partial content is preserved or error is saved
+        if not accumulated_content:
+            accumulated_content = error_msg
+        else:
+            accumulated_content += f"\n\n[{error_msg}]"
     finally:
-        # Save aggregated response to DB
+        # Save whatever we have (content or error message) to the DB
         if accumulated_content:
             try:
                 final_text = (request.response_prefill or "") + accumulated_content
                 if request.regenerate:
-                    print("DEBUG: Regenerating - adding version to last message.")
                     await add_version_to_last_message(db, chat.id, final_text)
                 else:
-                    print("DEBUG: Normal generation - appending new message.")
                     await append_message_to_chat(db, chat.id, "assistant", final_text)
             except Exception as e:
                 print(f"DEBUG: Critical Error saving assistant response: {str(e)}")

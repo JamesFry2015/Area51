@@ -41,11 +41,23 @@ const SettingsPanel = ({
       const payload = { ...configData };
       if (payload.api_key === '') delete payload.api_key;
       
+      const isActive = configToEdit && settings.model === configToEdit.model && settings.baseUrl === configToEdit.proxy_url;
+
       if (configToEdit) {
         await apiClient.patch(`/api-configs/${configToEdit.id}`, payload);
       } else {
         await apiClient.post('/api-configs/', payload);
       }
+
+      if (isActive) {
+        onSettingChange({
+          model: configData.model,
+          baseUrl: configData.proxy_url,
+          apiKey: '',
+          requestBody: configData.request_body || null
+        });
+      }
+
       setView('api');
     } catch (error) { console.error("Failed to save config:", error); }
   };

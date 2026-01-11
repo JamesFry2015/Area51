@@ -5,3 +5,13 @@ pycache/
 app.db
 
 .env
+
+# Ignore compiled Python files
+*.pyc
+__pycache__/
+
+# Ignore database files that are generated locally
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal

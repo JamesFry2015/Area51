@@ -20,10 +20,10 @@ const CopyButton = ({ text, className }) => {
   );
 };
 
-const MessageBubble = ({ message, index, isLast, onEdit, onDelete, onRegenerate, onVersionChange, onImageClick }) => {
+// FIX: Added isGenerating prop to control the loading state explicitly
+const MessageBubble = ({ message, index, isLast, onEdit, onDelete, onRegenerate, onVersionChange, onImageClick, isGenerating }) => {
   const isUser = message.role === 'user';
   
-  // FIX: Robust error detection
   const isError = message.content && (
       message.content.toLowerCase().startsWith('error:') || 
       message.content.startsWith('[Error:')
@@ -179,10 +179,15 @@ const MessageBubble = ({ message, index, isLast, onEdit, onDelete, onRegenerate,
               </div>
             )}
 
+            {/* FIX: Logic updated to strictly check isGenerating */}
             {!finalContent && !isThinking && !thought && !isUser ? (
-              <div className="typing-indicator">
-                <span className="typing-dot"></span><span className="typing-dot"></span><span className="typing-dot"></span>
-              </div>
+              isGenerating ? (
+                <div className="typing-indicator">
+                  <span className="typing-dot"></span><span className="typing-dot"></span><span className="typing-dot"></span>
+                </div>
+              ) : (
+                <div style={{color: '#888', fontStyle: 'italic', fontSize: '0.9em'}}>(No content)</div>
+              )
             ) : (
               renderMarkdown(finalContent)
             )}
@@ -190,7 +195,7 @@ const MessageBubble = ({ message, index, isLast, onEdit, onDelete, onRegenerate,
         )}
       </div>
 
-      {!isEditing && (!isThinking || finalContent) && (
+      {!isEditing && (!isThinking || finalContent || !isGenerating) && (
         <div className="message-footer">
           <span className="token-badge" title="Estimated Tokens">
             {Math.ceil(currentContent.length / 4)} tok

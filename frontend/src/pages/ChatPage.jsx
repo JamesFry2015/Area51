@@ -29,7 +29,7 @@ const ChatPage = () => {
   const [generationSettings, setGenerationSettings] = useState(() => {
     const saved = localStorage.getItem('generationSettings');
     const defaults = {
-      stream: true, // Default to true
+      stream: true,
       temperature: 1.0, max_tokens: 10000, context_window: 2000000,
       top_k: 0, top_p: 1.0, repetition_penalty: 1.0, frequency_penalty: 0.0,
       response_prefill_enabled: false, response_prefill: '',
@@ -124,7 +124,6 @@ const ChatPage = () => {
                 const updatedMsg = { ...lastHistoryMsg };
                 if (!updatedMsg.versions) updatedMsg.versions = [updatedMsg.content];
                 
-                // Create NEW version slot so MessageBubble sees empty content immediately
                 const newVersionIndex = updatedMsg.versions.length;
                 updatedMsg.versions = [...updatedMsg.versions, '']; 
                 updatedMsg.current_version = newVersionIndex;
@@ -167,7 +166,6 @@ const ChatPage = () => {
                   const lastIndex = newHistory.length - 1;
                   const lastMsg = { ...newHistory[lastIndex] }; 
 
-                  // Create shallow copy of versions to safely mutate
                   const versions = lastMsg.versions ? [...lastMsg.versions] : [''];
                   if (!lastMsg.versions) lastMsg.current_version = 0;
 
@@ -184,16 +182,9 @@ const ChatPage = () => {
               });
           }, abortControllerRef.current.signal);
       } else {
-          // Non-streaming: Wait for full response
           const response = await apiClient.post(`/chats/${chatId}/messages`, requestBody);
-          // Backend returns the fully updated chat object
           setChat(response.data);
       }
-
-      // FIX: REMOVED the "Sync final state" block here.
-      // We rely on the local optimistic state because it is complete and accurate.
-      // Fetching immediately causes a race condition where we get stale data (empty message)
-      // before the backend finishes saving.
 
     } catch (err) {
         if (err.name === 'AbortError') return;
@@ -315,6 +306,7 @@ const ChatPage = () => {
               index={index}
               message={msg} 
               isLast={index === chat.history.length - 1}
+              isGenerating={isSending && index === chat.history.length - 1} // FIX: Pass generation state
               onEdit={handleEditMessage}
               onDelete={handleDeleteMessage}
               onRegenerate={handleRegenerate}

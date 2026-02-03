@@ -39,7 +39,11 @@ const SettingsPanel = ({
   const handleSaveApiConfig = async (configData) => {
     try {
       const payload = { ...configData };
-      const isActive = configToEdit && settings.model === configToEdit.model && settings.baseUrl === configToEdit.proxy_url;
+      
+      // Determine if the config being saved is currently active before update
+      const wasActive = configToEdit && 
+                        settings.model === configToEdit.model && 
+                        settings.baseUrl === configToEdit.proxy_url;
 
       if (configToEdit) {
         await apiClient.patch(`/api-configs/${configToEdit.id}`, payload);
@@ -47,7 +51,8 @@ const SettingsPanel = ({
         await apiClient.post('/api-configs/', payload);
       }
 
-      if (isActive) {
+      // If we just edited the active config, update the app settings immediately
+      if (wasActive) {
         onSettingChange({
           model: configData.model,
           baseUrl: configData.proxy_url,
@@ -99,7 +104,13 @@ const SettingsPanel = ({
         <div className="api-config-header"><h3>Your Configurations</h3><button className="add-config-btn" onClick={handleAddClick}>+ Add Configuration</button></div>
         <div className="api-config-list">
           {apiConfigs.length > 0 ? apiConfigs.map(config => {
-            const isActive = settings.model === config.model && settings.baseUrl === config.proxy_url;
+            // FIX: Strict comparison preventing duplicate "Selected" badges
+            const isActive = 
+                settings.model === config.model && 
+                settings.baseUrl === config.proxy_url &&
+                (settings.apiKey || '') === (config.api_key || '') &&
+                (settings.requestBody || '') === (config.request_body || '');
+
             return (
               <div key={config.id} className={`config-item ${isActive ? 'active' : ''}`}>
                 <div className="config-item-header"><h4>{config.name} {isActive && <span className="active-badge">Selected</span>}</h4><div className="config-item-actions"><button onClick={() => handleEditClick(config)}>Edit</button><button onClick={() => handleDeleteClick(config.id)}>Delete</button></div></div>
@@ -180,14 +191,14 @@ const GenerationSettingsForm = ({ onBack, onClose, settings, onSettingChange }) 
     <div className="settings-content-wrapper">
       <div className="settings-header"><button onClick={onBack} className="back-btn">‹</button><h2>Generation Settings</h2><button onClick={onClose} className="close-btn">×</button></div>
       <div className="settings-content generation-form">
-        {/* NEW: Streaming Toggle */}
         <div className="toggle-group">
           <label htmlFor="stream_toggle">Stream Response</label>
           <input type="checkbox" id="stream_toggle" name="stream" checked={settings.stream !== false} onChange={handleToggle} />
         </div>
 
         <SliderInput label="Temperature" name="temperature" value={settings.temperature} min={0} max={2} step={0.1} onChange={handleSliderChange} />
-        <SliderInput label="Max Tokens" name="max_tokens" value={settings.max_tokens} min={0} max={10000} step={50} onChange={handleNumberChange} />
+        {/* FIX: Increased max tokens slider limit for reasoning models */}
+        <SliderInput label="Max Tokens" name="max_tokens" value={settings.max_tokens} min={0} max={32000} step={50} onChange={handleNumberChange} />
         <SliderInput label="Context Window" name="context_window" value={settings.context_window} min={0} max={2000000} step={1000} onChange={handleNumberChange} />
         <SliderInput label="Top-K" name="top_k" value={settings.top_k} min={0} max={100} step={1} onChange={handleNumberChange} />
         <SliderInput label="Top-P" name="top_p" value={settings.top_p} min={0} max={1} step={0.01} onChange={handleSliderChange} />

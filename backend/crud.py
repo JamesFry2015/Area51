@@ -168,10 +168,6 @@ async def create_chat_in_main_card(db: AsyncSession, main_card_id: int):
     return db_chat
 
 async def get_chat_completion(db: AsyncSession, chat: models.Chat, request: schemas.ChatCompletionRequest):
-    if not request.regenerate and request.message:
-        await append_message_to_chat(db, chat.id, "user", request.message, images=request.images)
-        await db.refresh(chat) 
-
     main_card = await db.get(models.MainCard, chat.main_card_id)
     
     api_messages = []
@@ -224,7 +220,7 @@ async def get_chat_completion(db: AsyncSession, chat: models.Chat, request: sche
     if request.request_body:
         payload.update(request.request_body)
     
-    timeout = httpx.Timeout(10.0, read=60.0)
+    timeout = httpx.Timeout(10.0, read=600.0)
     transport = httpx.AsyncHTTPTransport(retries=2)
 
     try:
@@ -233,9 +229,17 @@ async def get_chat_completion(db: AsyncSession, chat: models.Chat, request: sche
             response.raise_for_status()
             response_message_content = response.json()['choices'][0]['message']['content']
 
+        # FIX: Check if content is empty (e.g. strict reasoning exclusion) and raise error
+        if not response_message_content and not request.response_prefill:
+             error_msg = "Error: Model returned no content. Check 'reasoning' settings or max tokens."
+             await append_message_to_chat(db, chat.id, "assistant", error_msg)
+             return chat
+
         final_message = (request.response_prefill or "") + response_message_content
         
-        if request.regenerate:
+        last_role = chat.history[-1]["role"] if chat.history else None
+
+        if request.regenerate and last_role == "assistant":
             await add_version_to_last_message(db, chat.id, final_message)
         else:
             await append_message_to_chat(db, chat.id, "assistant", final_message)
@@ -299,7 +303,7 @@ async def get_chat_completion_stream(db: AsyncSession, chat: models.Chat, reques
     if request.request_body:
         payload.update(request.request_body)
 
-    timeout = httpx.Timeout(10.0, read=120.0)
+    timeout = httpx.Timeout(10.0, read=600.0)
 
     accumulated_content = ""
     try:
@@ -309,7 +313,6 @@ async def get_chat_completion_stream(db: AsyncSession, chat: models.Chat, reques
                     error_text = await response.aread()
                     error_msg = f"Error: API responded with status {response.status_code}: {error_text.decode('utf-8')}"
                     yield f"data: {error_msg}\n\n"
-                    # Capture the error to save it
                     accumulated_content = error_msg 
                     return
 
@@ -321,7 +324,20 @@ async def get_chat_completion_stream(db: AsyncSession, chat: models.Chat, reques
                             break
                         try:
                             json_data = json.loads(data)
-                            content = json_data['choices'][0]['delta'].get('content', '')
+                            
+                            if "error" in json_data:
+                                error_msg = f"Error: {json_data['error'].get('message', 'Unknown API Error')}"
+                                yield f"data: {error_msg}\n\n"
+                                accumulated_content = error_msg
+                                return
+
+                            choices = json_data.get('choices', [])
+                            if not choices:
+                                continue
+                                
+                            delta = choices[0].get('delta', {})
+                            content = delta.get('content', '')
+                            
                             if content:
                                 accumulated_content += content
                                 chunk_data = json.dumps({"choices": [{"delta": {"content": content}}]})
@@ -335,17 +351,23 @@ async def get_chat_completion_stream(db: AsyncSession, chat: models.Chat, reques
     except Exception as e:
         error_msg = f"Error: {str(e)}"
         yield f"data: {error_msg}\n\n"
-        # Fix: Ensure partial content is preserved or error is saved
         if not accumulated_content:
             accumulated_content = error_msg
         else:
             accumulated_content += f"\n\n[{error_msg}]"
     finally:
-        # Save whatever we have (content or error message) to the DB
+        if not accumulated_content:
+            error_msg = "Error: The model returned no content. This might happen if 'reasoning' settings excluded all output, or if the model failed to produce a response."
+            yield f"data: {error_msg}\n\n"
+            accumulated_content = error_msg
+
         if accumulated_content:
             try:
                 final_text = (request.response_prefill or "") + accumulated_content
-                if request.regenerate:
+                
+                last_role = chat.history[-1]["role"] if chat.history else None
+
+                if request.regenerate and last_role == "assistant":
                     await add_version_to_last_message(db, chat.id, final_text)
                 else:
                     await append_message_to_chat(db, chat.id, "assistant", final_text)

@@ -1,6 +1,8 @@
 from dotenv import load_dotenv
 import os
+import json
 load_dotenv()
+
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.responses import StreamingResponse
@@ -11,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from . import auth, crud, models, schemas
 from .database import engine, get_db, Base
+from .services import llm_client  # <--- NEW IMPORT
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -28,6 +31,50 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["Authorization", "Content-Type"],
 )
+
+# --- HELPER FUNCTION ---
+def build_api_messages(chat, main_card, request_prefill=None):
+    """Constructs the list of messages to send to the LLM API."""
+    api_messages = []
+    
+    # System Prompts
+    if main_card.description:
+        api_messages.append({"role": "system", "content": main_card.description})
+    if chat.system_prompt:
+        api_messages.append({"role": "system", "content": chat.system_prompt})
+    if chat.chat_memory:
+        api_messages.append({"role": "system", "content": f"Chat Memory (for context):\n{chat.chat_memory}"})
+
+    # Examples
+    if main_card.initial_message:
+        api_messages.append({"role": "user", "content": main_card.initial_message})
+    if main_card.example_response:
+        api_messages.append({"role": "assistant", "content": main_card.example_response})
+    
+    # Chat History
+    for msg in chat.history:
+        content = msg.get("content", "")
+        images = msg.get("images", [])
+        
+        if images:
+            content_list = [{"type": "text", "text": content}]
+            for img in images:
+                content_list.append({
+                    "type": "image_url",
+                    "image_url": {"url": img}
+                })
+            api_messages.append({"role": msg["role"], "content": content_list})
+        else:
+            api_messages.append({"role": msg["role"], "content": content})
+
+    # Response Prefill (if any)
+    if request_prefill:
+        api_messages.append({"role": "assistant", "content": request_prefill})
+        
+    return api_messages
+
+
+# --- ROUTES ---
 
 @app.post("/users/", response_model=schemas.UserSchema)
 async def create_user(user: schemas.UserCreate, db: AsyncSession = Depends(get_db)):
@@ -123,23 +170,68 @@ async def update_chat(chat_id: int, chat_update: schemas.ChatUpdate, current_use
         raise HTTPException(status_code=404, detail="Chat not found")
     return await crud.update_chat(db=db, chat=chat, chat_update=chat_update)
 
+# --- REFACTORED CHAT COMPLETION ENDPOINT ---
 @app.post("/chats/{chat_id}/messages", response_model=Union[schemas.ChatSchema, dict])
-async def chat_completion(chat_id: int, request: schemas.ChatCompletionRequest, current_user: models.User = Depends(auth.get_current_user), db: AsyncSession = Depends(get_db)):
+async def chat_completion(
+    chat_id: int, 
+    request: schemas.ChatCompletionRequest, 
+    current_user: models.User = Depends(auth.get_current_user), 
+    db: AsyncSession = Depends(get_db)
+):
+    # 1. Fetch Context
     chat = await crud.get_chat(db, chat_id=chat_id, user_id=current_user.id)
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
+    
+    main_card = await crud.get_main_card(db, main_card_id=chat.main_card_id, user_id=current_user.id)
 
-    # Pass images to the save function!
+    # 2. Save User Message (if not regenerating)
     if request.message and not request.regenerate:
         chat = await crud.append_message_to_chat(db, chat_id, "user", request.message, images=request.images)
+        # Note: 'chat' variable is updated here with the new history
 
+    # 3. Build API Payload
+    api_messages = build_api_messages(chat, main_card, request.response_prefill)
+    
+    settings = request.model_dump()
+    
+    # 4. Handle Streaming
     if request.stream:
-        return StreamingResponse(
-            crud.get_chat_completion_stream(db=db, chat=chat, request=request),
-            media_type="text/event-stream"
-        )
+        async def generator():
+            full_text = ""
+            # Stream chunks to client
+            async for chunk in llm_client.stream_llm_api(api_messages, settings):
+                yield chunk
+                # Capture text for saving (Basic SSE parsing)
+                if chunk.startswith("data: ") and not chunk.startswith("data: Error") and chunk.strip() != "data: [DONE]":
+                    try:
+                        data_json = json.loads(chunk[6:])
+                        content = data_json['choices'][0]['delta'].get('content', '')
+                        full_text += content
+                    except:
+                        pass
+            
+            # 5a. Save the full response after stream finishes
+            # We open a NEW session here because the request 'db' session might be closed/stale by now
+            final_content = (request.response_prefill or "") + full_text
+            async with AsyncSession(engine) as local_db:
+                if request.regenerate:
+                    await crud.add_version_to_last_message(local_db, chat_id, final_content)
+                else:
+                    await crud.append_message_to_chat(local_db, chat_id, "assistant", final_content)
 
-    return await crud.get_chat_completion(db=db, chat=chat, request=request)
+        return StreamingResponse(generator(), media_type="text/event-stream")
+
+    # 5b. Handle Normal (Non-Streaming)
+    response_content = await llm_client.call_llm_api(api_messages, settings)
+    final_content = (request.response_prefill or "") + response_content
+
+    if request.regenerate:
+        chat = await crud.add_version_to_last_message(db, chat_id, final_content)
+    else:
+        chat = await crud.append_message_to_chat(db, chat_id, "assistant", final_content)
+        
+    return chat
 
 @app.delete("/chats/{chat_id}/messages/{message_index}", response_model=schemas.ChatSchema)
 async def delete_chat_message(chat_id: int, message_index: int, current_user: models.User = Depends(auth.get_current_user), db: AsyncSession = Depends(get_db)):

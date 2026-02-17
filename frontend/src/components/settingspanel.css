@@ -282,3 +282,58 @@
   z-index: 1100;
 }
 .confirmation-modal h4 { margin-top: 0; font-size: 1.2rem; }
+
+.badges {
+    display: flex;
+    gap: 5px;
+    margin-left: 10px;
+    align-items: center;
+}
+
+.attachment-badge {
+    background-color: #6c5ce7; /* Purple for vision/attachment */
+    color: white;
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    font-weight: bold;
+    box-shadow: 0 0 5px rgba(108, 92, 231, 0.4);
+}
+
+/* Ensure the existing active-badge aligns well */
+.active-badge {
+    align-self: center;
+}
+
+.selection-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+    width: 100%;
+}
+
+.select-btn {
+    padding: 8px 12px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    flex: 1; /* Make buttons share width */
+    transition: background-color 0.2s;
+}
+
+.select-btn:hover {
+    background-color: #0056b3;
+}
+
+.select-btn.secondary {
+    background-color: #3e3e3e;
+    border: 1px solid #555;
+}
+
+.select-btn.secondary:hover {
+    background-color: #505050;
+}

@@ -5,8 +5,8 @@ import MessageBubble from '../components/MessageBubble.jsx';
 import MessageInput from '../components/MessageInput.jsx';
 import SettingsPanel from '../components/settingspanel.jsx';
 import ImageModal from '../components/ImageModal.jsx';
-import { useChatSettings } from '../hooks/useChatSettings'; // New Import
-import { useChat } from '../hooks/useChat'; // New Import
+import { useChatSettings } from '../hooks/useChatSettings'; 
+import { useChat } from '../hooks/useChat'; 
 import './ChatPage.css';
 
 const ChatPage = () => {
@@ -21,12 +21,14 @@ const ChatPage = () => {
   // 2. Custom Hooks
   const { 
     advancedSettings, setAdvancedSettings, 
+    attachmentSettings, setAttachmentSettings, // NEW: Destructure Attachment Settings
     generationSettings, setGenerationSettings 
   } = useChatSettings();
 
+  // Pass attachmentSettings to useChat so it can use them when sending files
   const { 
     chat, isLoading, isSending, error, actions 
-  } = useChat(chatId, { advancedSettings, generationSettings, logout });
+  } = useChat(chatId, { advancedSettings, attachmentSettings, generationSettings, logout });
 
   // 3. Effects (Title & Scroll)
   useEffect(() => {
@@ -93,6 +95,8 @@ const ChatPage = () => {
         onClose={() => setIsSettingsOpen(false)}
         settings={advancedSettings}
         onSettingChange={setAdvancedSettings}
+        attachmentSettings={attachmentSettings} // NEW: Pass to Settings Panel
+        onAttachmentSettingChange={setAttachmentSettings} // NEW: Pass Setter
         generationSettings={generationSettings}
         onGenerationSettingsChange={setGenerationSettings}
         chatData={chat}

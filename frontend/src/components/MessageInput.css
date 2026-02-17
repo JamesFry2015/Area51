@@ -1,48 +1,113 @@
-.input-wrapper {
+/* Existing styles... */
+
+/* Drag & Drop Visuals */
+.message-input-container {
+    position: relative; /* Needed for overlay */
+    transition: border-color 0.2s, background-color 0.2s;
+}
+
+.message-input-container.dragging {
+    border-color: #646cff; /* Primary accent color */
+    background-color: rgba(100, 108, 255, 0.1);
+    border-style: dashed;
+}
+
+.drag-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.6);
+    color: white;
+    font-weight: bold;
+    font-size: 1.2rem;
+    border-radius: 12px; /* Match your container radius */
+    z-index: 10;
+    pointer-events: none;
+}
+
+/* Updated Attachment Preview */
+.attachment-preview {
+    position: relative;
+    display: inline-block;
+    margin-bottom: 8px;
+    background: #2a2a2a;
+    padding: 6px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.preview-image {
+    max-height: 200px;
+    border-radius: 4px;
+    display: block;
+}
+
+/* New: File Card Style (for docs) */
+.file-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background: #333;
+    border-radius: 6px;
+    border: 1px solid #444;
+    min-width: 200px;
+}
+
+.file-icon {
+    font-size: 24px;
+}
+
+.file-info {
     display: flex;
     flex-direction: column;
-    width: 100%;
-    max-width: 800px;
-    margin: 0 auto;
 }
 
-/* Image Preview Container */
-.image-preview {
-    position: relative;
-    width: fit-content;
-    margin-bottom: 5px;
-    margin-left: 10px;
-    /* FIX: Ensure container doesn't overflow */
-    max-width: 100%; 
+.file-name {
+    font-weight: 500;
+    font-size: 0.9rem;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 180px;
 }
 
-/* FIX: Restrict the preview image size */
-.image-preview img {
-    height: 80px; /* Fixed height for thumbnail feel */
-    width: auto;
-    border-radius: 8px;
-    border: 1px solid #555;
-    background-color: #222;
-    object-fit: contain;
-    display: block; /* Removes bottom spacing issues */
+.file-type {
+    font-size: 0.75rem;
+    color: #aaa;
 }
 
-.image-preview .remove-btn {
+/* Ensure remove button is positioned well */
+.remove-btn {
     position: absolute;
     top: -8px;
     right: -8px;
-    background-color: #d9534f;
+    background: #ff4444;
     color: white;
     border: none;
     border-radius: 50%;
-    width: 20px;
-    height: 20px;
-    font-size: 12px;
+    width: 24px;
+    height: 24px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    font-size: 14px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.attach-btn {
+    background-color: #444;
+}
+
+.attach-btn:hover {
+    background-color: #555;
 }
 
 .message-input-container {
@@ -53,10 +118,26 @@
   padding: 10px;
   border-radius: 20px;
   border: 1px solid #444;
+  
+  /* CRITICAL FIXES */
+  width: 100%; 
+  box-sizing: border-box;
+  position: relative; /* For the drag overlay */
+  transition: border-color 0.2s, background-color 0.2s;
 }
+
+
+.message-input-container.dragging {
+    border-color: #646cff;
+    border-style: dashed;
+    background-color: rgba(100, 108, 255, 0.1);
+}
+
 
 .message-textarea {
   flex: 1;
+  width: 100%; /* Force width */
+  min-width: 0; /* Flexbox trick to prevent overflow */
   background-color: transparent;
   border: none;
   color: white;
@@ -67,53 +148,4 @@
   padding: 5px 0;
   max-height: 200px;
   overflow-y: auto;
-}
-
-.message-textarea:focus {
-  outline: none;
-}
-
-.input-actions {
-    display: flex;
-    gap: 8px;
-}
-
-.input-actions button {
-  background-color: #007bff;
-  color: white;
-  border: none;
-  border-radius: 50%;
-  width: 35px;
-  height: 35px;
-  cursor: pointer;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  font-size: 1.2rem;
-  transition: background-color 0.2s;
-}
-
-.input-actions button:hover:not(:disabled) {
-  background-color: #0056b3;
-}
-
-.input-actions button:disabled {
-  background-color: #555;
-  cursor: not-allowed;
-  opacity: 0.7;
-}
-
-.stop-btn {
-    background-color: #d9534f !important;
-}
-.stop-btn:hover {
-    background-color: #c9302c !important;
-}
-
-.token-usage {
-    align-self: flex-end;
-    font-size: 0.75rem;
-    color: #888;
-    margin-top: 5px;
-    margin-right: 15px;
 }

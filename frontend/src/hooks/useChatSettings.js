@@ -1,13 +1,20 @@
 import { useState, useEffect } from 'react';
 
 export const useChatSettings = () => {
-  // Advanced Settings
+  // 1. Main Chat Model Settings
   const [advancedSettings, setAdvancedSettings] = useState(() => {
     const saved = localStorage.getItem('advancedSettings');
     return saved ? JSON.parse(saved) : { apiKey: '', model: '', baseUrl: '', requestBody: null };
   });
 
-  // Generation Settings
+  // 2. NEW: Attachment Model Settings
+  const [attachmentSettings, setAttachmentSettings] = useState(() => {
+    const saved = localStorage.getItem('attachmentSettings');
+    // Default to null, meaning fallback to main model if not set
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  // 3. Generation Settings
   const [generationSettings, setGenerationSettings] = useState(() => {
     const saved = localStorage.getItem('generationSettings');
     const defaults = {
@@ -25,12 +32,20 @@ export const useChatSettings = () => {
   }, [advancedSettings]);
 
   useEffect(() => {
+    if (attachmentSettings) {
+      localStorage.setItem('attachmentSettings', JSON.stringify(attachmentSettings));
+    }
+  }, [attachmentSettings]);
+
+  useEffect(() => {
     localStorage.setItem('generationSettings', JSON.stringify(generationSettings));
   }, [generationSettings]);
 
   return {
     advancedSettings,
     setAdvancedSettings,
+    attachmentSettings,    // Export this
+    setAttachmentSettings, // Export this
     generationSettings,
     setGenerationSettings
   };

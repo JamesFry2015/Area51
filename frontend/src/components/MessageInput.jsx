@@ -1,10 +1,10 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react'; // Added useEffect here
 import TextareaAutosize from 'react-textarea-autosize';
 import './MessageInput.css';
 
-const MessageInput = ({ onSendMessage, onStop, isLoading }) => {
+// Added externalFile and onFileProcessed to the props list
+const MessageInput = ({ onSendMessage, onStop, isLoading, externalFile, onFileProcessed }) => {
   const [inputValue, setInputValue] = useState('');
-  // Changed from selectedImage to attachment (stores { file, previewUrl, isImage, type })
   const [attachment, setAttachment] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
@@ -22,22 +22,28 @@ const MessageInput = ({ onSendMessage, onStop, isLoading }) => {
         name: file.name,
         type: file.type,
         isImage: isImage,
-        // For images, this is the display source. 
-        // For docs, we can still use this base64 for upload, 
-        // or just store the file object depending on your backend needs.
         content: reader.result 
       });
     };
 
-    // Read everything as DataURL (Base64) for now to keep consistent with image logic
     reader.readAsDataURL(file);
   };
+
+  // --- NEW: Global Drop Listener ---
+  // This watches for files dropped anywhere on the ChatPage
+  useEffect(() => {
+    if (externalFile) {
+      processFile(externalFile);
+      // Tell the ChatPage that we've successfully grabbed the file
+      if (onFileProcessed) onFileProcessed();
+    }
+  }, [externalFile, onFileProcessed]);
 
   const handleFileSelect = (e) => {
     processFile(e.target.files[0]);
   };
 
-  // --- Drag and Drop Handlers ---
+  // --- Drag and Drop Handlers (Local to the input box) ---
   const handleDragOver = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -71,7 +77,6 @@ const MessageInput = ({ onSendMessage, onStop, isLoading }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     if ((inputValue.trim() || attachment) && !isLoading) {
-      // Pass the whole attachment object up, or just the content if that's what useChat expects
       onSendMessage(inputValue, attachment ? attachment.content : null); 
       
       setInputValue('');
@@ -90,7 +95,6 @@ const MessageInput = ({ onSendMessage, onStop, isLoading }) => {
 
   return (
     <div className="input-wrapper">
-        {/* Attachment Preview Area */}
         {attachment && (
             <div className="attachment-preview">
                 {attachment.isImage ? (
@@ -108,9 +112,6 @@ const MessageInput = ({ onSendMessage, onStop, isLoading }) => {
             </div>
         )}
 
-        {/* Drag Zone Container 
-            Conditional class 'dragging' adds visual cues
-        */}
         <form 
             className={`message-input-container ${isDragging ? 'dragging' : ''}`} 
             onSubmit={handleSubmit}
@@ -118,7 +119,6 @@ const MessageInput = ({ onSendMessage, onStop, isLoading }) => {
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
         >
-            {/* Hidden File Input: Update accept to include docs */}
             <input 
                 type="file" 
                 accept="image/*, .pdf, .txt, .md, .json, .csv, .py, .js, .html, .css" 
@@ -127,7 +127,6 @@ const MessageInput = ({ onSendMessage, onStop, isLoading }) => {
                 onChange={handleFileSelect} 
             />
             
-            {/* Drag Overlay Text */}
             {isDragging && <div className="drag-overlay">Drop file to attach</div>}
 
             <TextareaAutosize
@@ -139,7 +138,7 @@ const MessageInput = ({ onSendMessage, onStop, isLoading }) => {
                 maxRows={8}
                 disabled={isLoading}
                 onKeyDown={handleKeyDown}
-                style={{ pointerEvents: isDragging ? 'none' : 'auto' }} // Prevent interference during drag
+                style={{ pointerEvents: isDragging ? 'none' : 'auto' }}
             />
             
             <div className="input-actions">

@@ -16,21 +16,45 @@ const ChatPage = () => {
   // 1. UI State
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
+  const [isDragging, setIsDragging] = useState(false); // NEW: Track drag state
+  const [droppedFile, setDroppedFile] = useState(null); // NEW: Store dropped file
   const messagesEndRef = useRef(null);
 
   // 2. Custom Hooks
   const { 
     advancedSettings, setAdvancedSettings, 
-    attachmentSettings, setAttachmentSettings, // NEW: Destructure Attachment Settings
+    attachmentSettings, setAttachmentSettings,
     generationSettings, setGenerationSettings 
   } = useChatSettings();
 
-  // Pass attachmentSettings to useChat so it can use them when sending files
   const { 
     chat, isLoading, isSending, error, actions 
   } = useChat(chatId, { advancedSettings, attachmentSettings, generationSettings, logout });
 
-  // 3. Effects (Title & Scroll)
+  // 3. Drag & Drop Handlers
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
+      if (file.type.startsWith('image/')) {
+        setDroppedFile(file); // Send file to MessageInput
+      }
+    }
+  };
+
+  // 4. Effects
   useEffect(() => {
     if (chat?.name) document.title = chat.name;
   }, [chat?.name]);
@@ -41,7 +65,7 @@ const ChatPage = () => {
     }
   }, [chat?.history, isSending]);
 
-  // 4. Computed
+  // 5. Computed
   const totalTokens = useMemo(() => {
     if (!chat?.history) return 0;
     return chat.history.reduce((acc, msg) => {
@@ -54,7 +78,22 @@ const ChatPage = () => {
   if (error) return <div>{error}</div>;
 
   return (
-    <div className="chat-page-container">
+    <div 
+      className="chat-page-container"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* Visual Overlay when dragging */}
+      {isDragging && (
+        <div className="drag-overlay">
+          <div className="drag-message">
+            <span className="drag-icon">📸</span>
+            <h2>Drop to Upload Image</h2>
+          </div>
+        </div>
+      )}
+
       <header className="chat-header">
         <Link to={`/main-card/${chat?.main_card_id}`} className="back-link">← Back</Link>
         <div style={{ textAlign: 'center' }}>
@@ -87,7 +126,9 @@ const ChatPage = () => {
       <MessageInput 
         onSendMessage={actions.sendMessage} 
         onStop={actions.stop} 
-        isLoading={isSending} 
+        isLoading={isSending}
+        externalFile={droppedFile} // Pass the dropped file down
+        onFileProcessed={() => setDroppedFile(null)} // Clear it once used
       />
 
       <SettingsPanel
@@ -95,8 +136,8 @@ const ChatPage = () => {
         onClose={() => setIsSettingsOpen(false)}
         settings={advancedSettings}
         onSettingChange={setAdvancedSettings}
-        attachmentSettings={attachmentSettings} // NEW: Pass to Settings Panel
-        onAttachmentSettingChange={setAttachmentSettings} // NEW: Pass Setter
+        attachmentSettings={attachmentSettings}
+        onAttachmentSettingChange={setAttachmentSettings}
         generationSettings={generationSettings}
         onGenerationSettingsChange={setGenerationSettings}
         chatData={chat}

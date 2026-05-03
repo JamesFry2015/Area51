@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import apiClient from '../api.js'; // Ensure this import matches your file structure
-// Note: Assuming streamChatCompletion is exported from api.js or handled inline. 
-// If it's separate, import it. Based on your file, it seems to be in api.js
+import apiClient from '../api.js';
 
 export const useChat = (chatId, { advancedSettings, attachmentSettings, generationSettings, logout }) => {
   const [chat, setChat] = useState(null);
@@ -41,9 +39,6 @@ export const useChat = (chatId, { advancedSettings, attachmentSettings, generati
     if (!messageContent && !attachment && !isRegenerate) return;
     setError('');
 
-    // LOGIC: Determine which settings to use
-    // If there is an attachment AND attachment settings are configured, use them.
-    // Otherwise, fallback to the standard advancedSettings.
     const activeSettings = (attachment && attachmentSettings) ? attachmentSettings : advancedSettings;
 
     if (!activeSettings.model || !activeSettings.baseUrl) {
@@ -55,20 +50,16 @@ export const useChat = (chatId, { advancedSettings, attachmentSettings, generati
     abortControllerRef.current = new AbortController();
 
     // -- Optimistic Update Logic --
-    // We update the UI immediately before the server responds
     setChat(prevChat => {
         if (!prevChat) return null;
         
-        // Deep copy history to avoid mutation
         const newHistory = [...prevChat.history]; 
         
         if (isRegenerate) {
-            // Regeneration Logic
             if (newHistory.length > 0) {
                 const lastMsgIndex = newHistory.length - 1;
                 const lastMsg = newHistory[lastMsgIndex];
                 
-                // If the last message was the user, we need to add a placeholder assistant response
                 if (lastMsg.role === 'user') {
                     newHistory.push({ 
                         role: 'assistant', 
@@ -77,26 +68,22 @@ export const useChat = (chatId, { advancedSettings, attachmentSettings, generati
                         current_version: 0 
                     });
                 } else {
-                    // If the last message was assistant, we create a new version for it
                     const updatedMsg = { ...lastMsg };
                     const newVersions = [...(updatedMsg.versions || [updatedMsg.content]), ''];
                     updatedMsg.versions = newVersions;
                     updatedMsg.current_version = newVersions.length - 1;
-                    updatedMsg.content = ''; // Clear content for streaming
+                    updatedMsg.content = ''; 
                     newHistory[lastMsgIndex] = updatedMsg;
                 }
             }
         } else {
-            // New Message Logic
             newHistory.push({ 
                 role: 'user', 
                 content: messageContent, 
                 versions: [messageContent], 
                 current_version: 0, 
-                // Store attachment in history (assuming backend handles 'images' field for both images/docs or you map it)
                 images: attachment ? [attachment] : [] 
             });
-            // Placeholder for Assistant Response
             newHistory.push({ role: 'assistant', content: '', versions: [''], current_version: 0 });
         }
         return { ...prevChat, history: newHistory };
@@ -105,24 +92,20 @@ export const useChat = (chatId, { advancedSettings, attachmentSettings, generati
     try {
       const shouldStream = generationSettings.stream !== false;
       
-      // Construct payload using the ACTIVE settings (either Main or Attachment model)
       const requestBody = {
-        message: !isRegenerate ? messageContent : null, // If regenerate, backend usually uses history
+        message: !isRegenerate ? messageContent : null,
         images: attachment ? [attachment] : [],
         model: activeSettings.model,
         base_url: activeSettings.baseUrl,
         api_key: activeSettings.apiKey || null,
-        // Spread generation parameters (temp, top_p, etc)
         ...generationSettings,
         stream: shouldStream,
         response_prefill: generationSettings.response_prefill_enabled ? generationSettings.response_prefill : null,
-        // Parse custom request body if present in the active config
         request_body: activeSettings.requestBody ? JSON.parse(activeSettings.requestBody) : null,
         regenerate: isRegenerate
       };
 
       if (shouldStream) {
-        // Assuming streamChatCompletion is a helper that handles the EventSource/Stream logic
         await apiClient.streamChatCompletion(chatId, requestBody, (chunk) => {
           setChat(prev => {
             if (!prev) return null;
@@ -133,7 +116,6 @@ export const useChat = (chatId, { advancedSettings, attachmentSettings, generati
             const verIdx = last.current_version || 0;
             const versions = [...(last.versions || [''])];
             
-            // Append chunk
             versions[verIdx] = (versions[verIdx] || '') + chunk;
             
             last.versions = versions;
@@ -144,7 +126,6 @@ export const useChat = (chatId, { advancedSettings, attachmentSettings, generati
           });
         }, abortControllerRef.current.signal);
       } else {
-        // Non-streaming request
         const response = await apiClient.post(`/chats/${chatId}/messages`, requestBody);
         setChat(response.data);
       }
@@ -152,56 +133,113 @@ export const useChat = (chatId, { advancedSettings, attachmentSettings, generati
       if (err.name === 'AbortError') return;
       console.error("Message send failed:", err);
       setError('Failed to send message. Please checks your API settings.');
-      
-      // Optional: Revert optimistic update on error could go here
     } finally {
       setIsSending(false);
       abortControllerRef.current = null;
     }
   };
 
-  // Helper wrappers
   const handleSendMessage = (content, attachment) => sendMessage(content, attachment, false);
   const handleRegenerate = () => sendMessage(null, null, true);
 
-  // 4. Other CRUD Operations (Placeholders as per your file)
+  // 4. FIX: Robust Edit Message Function
   const editMessage = async (index, newContent) => {
-    // Implementation depends on your backend API for editing
-    // Usually involves PUT /chats/:id/messages/:index and then refreshing chat
+    // Snapshot for rollback
+    const previousChat = JSON.parse(JSON.stringify(chat)); 
+
     try {
-        const history = [...chat.history];
-        history[index].content = newContent;
-        // Optimistic update
-        setChat({...chat, history});
-        // Call API
-        await apiClient.put(`/chats/${chatId}/messages/${index}`, { content: newContent });
-        // Often we regenerate after editing a user message
-        if (history[index].role === 'user') {
-            // Trigger regeneration from this point? 
-            // This logic depends on your specific app flow.
+        let updatedMessageForApi = null;
+
+        setChat(prevChat => {
+            if (!prevChat) return null;
+            const history = [...prevChat.history];
+            const msg = { ...history[index] }; // Shallow copy
+
+            // 1. Handle Versions Logic safely
+            // Initialize versions array if it doesn't exist (common for legacy or image-only messages)
+            let versions = Array.isArray(msg.versions) ? [...msg.versions] : [];
+
+            // If versions was empty/missing, attempt to use the old content or start fresh
+            if (versions.length === 0) {
+                 if (msg.content) {
+                     versions = [msg.content];
+                 } else {
+                     // If no content existed (e.g. image only), start with an empty string placeholder
+                     versions = ['']; 
+                 }
+            }
+
+            const currentVer = msg.current_version || 0;
+            const targetVer = (currentVer >= 0 && currentVer < versions.length) ? currentVer : 0;
+            
+            // Update the specific version with new content
+            versions[targetVer] = newContent;
+            
+            // 2. Update Message Object
+            msg.content = newContent;
+            msg.versions = versions;
+            msg.current_version = targetVer;
+
+            // Capture for API call
+            updatedMessageForApi = msg;
+
+            history[index] = msg;
+            return { ...prevChat, history };
+        });
+
+        // 3. API Call with FULL payload
+        // We send the entire relevant state so the backend doesn't lose data (like images)
+        if (updatedMessageForApi) {
+            await apiClient.put(`/chats/${chatId}/messages/${index}`, { 
+                content: newContent,
+                versions: updatedMessageForApi.versions,
+                current_version: updatedMessageForApi.current_version,
+                images: updatedMessageForApi.images || [], // Preserve images
+                role: updatedMessageForApi.role
+            });
         }
-    } catch(e) { console.error(e); setError('Failed to edit message'); }
+        
+    } catch(e) { 
+        console.error("Edit failed", e); 
+        // FIX: Use alert instead of setError to prevent the whole page from being replaced by the error screen
+        alert(`Failed to save edit: ${e.response?.data?.detail || e.message}`);
+        setChat(previousChat); // Rollback to previous state
+    }
   };
   
   const deleteMessage = async (index) => {
     try {
-        const response = await apiClient.delete(`/chats/${chatId}/messages/${index}`);
-        setChat(response.data);
-    } catch(e) { console.error(e); setError('Failed to delete message'); }
+        setChat(prev => {
+            if (!prev) return null;
+            const history = prev.history.filter((_, i) => i !== index);
+            return { ...prev, history };
+        });
+        await apiClient.delete(`/chats/${chatId}/messages/${index}`);
+    } catch(e) { 
+        console.error(e); 
+        alert('Failed to delete message'); 
+        // Re-fetch chat to restore state logic could go here
+    }
   };
 
   const switchVersion = async (index, verIdx) => {
     setChat(prev => {
+        if (!prev) return null;
         const hist = [...prev.history];
-        hist[index].current_version = verIdx;
-        hist[index].content = hist[index].versions[verIdx];
+        const msg = { ...hist[index] };
+        
+        const versions = msg.versions || [msg.content];
+        if (versions[verIdx] !== undefined) {
+            msg.current_version = verIdx;
+            msg.content = versions[verIdx];
+            hist[index] = msg;
+        }
         return { ...prev, history: hist };
     });
-    // Optional: Persist version choice to backend
+    // Optional: Persist version choice to backend if your API supports it
   };
   
   const updateChatData = async (data) => {
-      // Update system prompt, memory, etc.
       try {
           await apiClient.patch(`/chats/${chatId}`, data);
           setChat(prev => ({ ...prev, ...data }));

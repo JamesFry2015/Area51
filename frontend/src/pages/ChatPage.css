@@ -88,3 +88,33 @@
     color: white;
     text-decoration: underline;
 }
+
+.drag-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 123, 255, 0.2);
+  backdrop-filter: blur(4px);
+  border: 4px dashed #007bff;
+  z-index: 10000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  pointer-events: none; /* Crucial: lets the drop event pass through */
+}
+
+.drag-message {
+  background: white;
+  padding: 2rem;
+  border-radius: 15px;
+  text-align: center;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+}
+
+.drag-icon {
+  font-size: 3rem;
+  display: block;
+  margin-bottom: 10px;
+}

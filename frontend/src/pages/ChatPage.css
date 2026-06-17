@@ -1,10 +1,10 @@
 .chat-page-container {
   display: flex;
   flex-direction: column;
-  height: 100vh; /* Full viewport height */
+  height: 100vh;
   width: 100%;
-  background-color: #1e1e1e;
-  color: #e0e0e0;
+  background-color: #ffffff;
+  color: #333;
   overflow: hidden; 
 }
 
@@ -12,42 +12,53 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 15px 20px;
-  background-color: #2a2a2a;
-  border-bottom: 1px solid #444;
-  flex-shrink: 0; /* Prevents the header from shrinking */
+  padding: 10px 15px;
+  background: linear-gradient(to bottom, #f9f9f9 0%, #e0e0e0 100%);
+  border-bottom: 1px solid #abadb3;
+  flex-shrink: 0;
 }
 
 .chat-header h1 {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
+  color: #003366;
 }
 
 .back-link {
-  color: #007bff;
+  color: #0066cc;
   text-decoration: none;
-  font-size: 1rem;
+  font-size: 0.9rem;
+}
+.back-link:hover {
+  text-decoration: underline;
 }
 
 .settings-btn {
-    background: none;
-    border: none;
-    color: #e0e0e0;
+    background: transparent;
+    border: 1px solid transparent;
+    color: #333;
     cursor: pointer;
+    padding: 2px 5px;
+    box-shadow: none;
+}
+.settings-btn:hover {
+    border-color: #abadb3;
+    background-color: #eaf6fd;
 }
 
 /* This wrapper will handle the scrolling and growing */
 .chat-history-wrapper {
   flex-grow: 1;
   overflow-y: auto;
-  padding: 20px;
+  padding: 15px;
+  background-color: #f3f3f3; /* classic messenger background */
 }
 
 /* The actual history content will be centered with a max-width for readability */
 .chat-history {
-  max-width: 900px;
+  max-width: 800px;
   width: 100%;
-  margin: 0 auto; /* Center the content */
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
 }
@@ -55,18 +66,19 @@
 /* Message Actions Wrapper */
 .message-wrapper {
     position: relative;
-    margin-bottom: 10px;
+    margin-bottom: 15px;
 }
 
 .message-actions {
     position: absolute;
-    bottom: -20px;
-    right: 10px;
+    bottom: -15px;
+    right: 5px;
     opacity: 0;
     transition: opacity 0.2s;
-    background-color: rgba(0,0,0,0.5);
-    border-radius: 4px;
-    padding: 2px;
+    background-color: #f0f0f0;
+    border: 1px solid #c8c8c8;
+    border-radius: 2px;
+    padding: 1px;
     z-index: 10;
 }
 
@@ -77,14 +89,15 @@
 .msg-action-btn {
     background: none;
     border: none;
-    color: #bbb;
+    color: #666;
     font-size: 0.75rem;
     cursor: pointer;
-    margin-left: 5px;
-    padding: 2px 5px;
+    margin-left: 2px;
+    padding: 2px 4px;
+    box-shadow: none;
 }
 
 .msg-action-btn:hover {
-    color: white;
-    text-decoration: underline;
+    color: #333;
+    background-color: #eaf6fd;
 }

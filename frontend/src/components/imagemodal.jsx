@@ -1,5 +1,5 @@
 import React from 'react';
-import './ImageModal.css';
+import './imagemodal.css';
 
 const ImageModal = ({ src, onClose }) => {
   if (!src) return null;

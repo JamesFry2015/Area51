@@ -1,11 +1,12 @@
 /* --- Main Container --- */
 .detail-page-container {
   max-width: 1000px;
-  margin: 40px auto;
+  margin: 20px auto;
   padding: 20px;
-  background-color: #1e1e1e;
-  border-radius: 12px;
-  color: #d4d4d4;
+  background-color: #ffffff;
+  border: 1px solid #c8c8c8;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  color: #333;
 }
 
 /* --- Header --- */
@@ -13,59 +14,51 @@
   display: flex;
   align-items: center;
   gap: 20px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid #333;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #abadb3;
   margin-bottom: 20px;
+  background: linear-gradient(to bottom, #f9f9f9 0%, #e0e0e0 100%);
+  padding: 10px 15px;
+  border-radius: 2px;
 }
 .detail-header h1 {
   margin: 0;
-  font-size: 2rem;
+  font-size: 1.5rem;
   flex-grow: 1;
 }
 .back-link {
-  color: #007bff;
+  color: #0066cc;
   text-decoration: none;
-  font-size: 1rem;
+  font-size: 0.9rem;
+}
+.back-link:hover {
+  text-decoration: underline;
 }
 .header-actions button {
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  /* Using default button styles */
+  margin-left: 5px;
 }
-.header-actions .edit-btn {
-  background-color: #333;
-  border: 1px solid #555;
-  color: #ccc;
-}
-.header-actions .edit-btn:hover { background-color: #444; }
-.header-actions .delete-btn {
-  background-color: #dc3545;
-  border: 1px solid #dc3545;
-  color: white;
-}
-.header-actions .delete-btn:hover { background-color: #c82333; }
 
 /* --- Content Layout --- */
 .detail-content {
   display: grid;
-  grid-template-columns: 1fr 1.5fr;
-  gap: 40px;
+  grid-template-columns: 1fr 2fr;
+  gap: 20px;
 }
 
 .description-box, .chat-sessions-box {
-  background-color: #2a2a2a;
-  padding: 20px;
-  border-radius: 8px;
+  background-color: #fcfcfc;
+  padding: 15px;
+  border: 1px solid #c8c8c8;
 }
 
 .description-box h3, .sessions-header h2 {
   margin-top: 0;
-  border-bottom: 1px solid #444;
-  padding-bottom: 10px;
-  margin-bottom: 20px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 5px;
+  margin-bottom: 15px;
+  font-size: 1.1rem;
+  color: #003366;
 }
 
 .sessions-header {
@@ -74,48 +67,48 @@
   align-items: center;
 }
 .sessions-header .add-btn {
-  background-color: #8a2be2;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-weight: 600;
-  cursor: pointer;
+  /* Inherit default button */
 }
 
 /* --- Chat Session List --- */
 .sessions-list {
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 10px;
 }
 
 /* --- UPDATED: Grid Layout for Session Item --- */
 .session-item {
-  background-color: #333;
-  padding: 15px;
-  border-radius: 6px;
-  border: 1px solid #444;
+  background-color: #fff;
+  padding: 10px;
+  border: 1px solid #d3d3d3;
   
-  /* Using Grid to strictly control position */
   display: grid;
-  grid-template-columns: 1fr auto; /* Left col expands, Right col fits content */
+  grid-template-columns: 1fr auto;
   grid-template-areas: 
     "title actions" 
-    "memory memory"; /* Memory spans both columns on the second row */
+    "memory memory";
   align-items: center;
-  gap: 5px 15px; /* 5px row gap, 15px column gap */
+  gap: 5px 15px;
+}
+.session-item:hover {
+  background-color: #f0f8ff;
+  border-color: #99ccee;
 }
 
 .session-link {
   grid-area: title;
-  color: #e0e0e0;
+  color: #0066cc;
   text-decoration: none;
   font-weight: 500;
-  min-width: 0; /* Allows ellipsis to work */
+  font-size: 0.95rem;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.session-link:hover {
+  text-decoration: underline;
 }
 
 .session-actions {
@@ -126,82 +119,65 @@
 
 .chat-memory {
   grid-area: memory;
-  margin: 0; /* Removed top margin as grid gap handles it */
+  margin: 0;
   font-size: 0.8rem;
-  color: #888;
-  font-style: italic;
+  color: #666;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .session-actions button {
-  background: none;
-  border: 1px solid #555;
-  color: #ccc;
-  padding: 5px 10px;
-  border-radius: 4px;
-  margin-left: 10px;
-  cursor: pointer;
-  transition: all 0.2s;
+  background: transparent;
+  border: 1px solid transparent;
+  color: #666;
+  padding: 2px 6px;
+  margin-left: 5px;
+  box-shadow: none;
 }
 
 .session-actions button:hover {
-  background-color: #444;
-  color: white;
+  background-color: #eaf6fd;
+  border-color: #abadb3;
+  color: #333;
 }
 
 /* Rename form inherits the full width of the grid container */
 .rename-form {
-  grid-column: 1 / -1; /* Span full width */
+  grid-column: 1 / -1;
   display: flex;
-  gap: 10px;
+  gap: 5px;
   width: 100%;
 }
 .rename-form input {
   flex-grow: 1;
-  background-color: #2c2c2c;
-  border: 1px solid #555;
-  color: #e0e0e0;
-  padding: 8px;
-  border-radius: 4px;
 }
 .rename-form button {
-  background-color: #8a2be2;
-  color: white;
-  border: none;
+  /* Default button style */
 }
 
 /* --- Generic Modal Styles --- */
 .modal-backdrop {
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  background-color: rgba(0, 0, 0, 0.7);
+  background-color: rgba(255, 255, 255, 0.5);
   z-index: 1000;
   display: flex; justify-content: center; align-items: center;
 }
 .modal-content {
-  background-color: #2a2a2a;
-  padding: 2rem;
-  border-radius: 8px;
-  border: 1px solid #444;
-  max-width: 500px;
+  background-color: #ffffff;
+  padding: 20px;
+  border: 1px solid #333;
+  box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+  max-width: 400px;
   width: 100%;
 }
-.modal-content h2 { margin-top: 0; }
+.modal-content h2 { margin-top: 0; font-size: 1.2rem; color: #003366;}
 .modal-content .form-actions {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: 20px;
+  margin-top: 15px;
 }
 .modal-content .form-actions button {
-  padding: 10px 20px;
-  border-radius: 6px;
-  border: none;
-  font-weight: bold;
-  cursor: pointer;
-}
-.modal-content .delete-btn {
-  background-color: #dc3545;
-  color: white;
+  /* Use defaults */
 }

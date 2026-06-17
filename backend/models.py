@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, ForeignKey, Text, JSON
 from sqlalchemy.orm import relationship
 
 from .database import Base
@@ -26,7 +26,10 @@ class MainCard(Base):
 class Chat(Base):
     __tablename__ = "chats"
     id = Column(Integer, primary_key=True, index=True)
-    history_json = Column(Text, default='[]')
+    name = Column(String, default="New Chat")
+    history = Column(JSON, default=[])
+    system_prompt = Column(Text, nullable=True)
+    chat_memory = Column(Text, nullable=True)
     main_card_id = Column(Integer, ForeignKey("main_cards.id"))
     main_card = relationship("MainCard", back_populates="chats")
 
@@ -38,6 +41,7 @@ class ApiConfig(Base):
     proxy_url = Column(String)
     api_key = Column(String, nullable=True)
     custom_prompt = Column(String, nullable=True)
+    request_body = Column(Text, nullable=True)
     owner_id = Column(Integer, ForeignKey("users.id"))
     owner = relationship("User", back_populates="api_configs")
 

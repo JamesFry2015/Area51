@@ -1,16 +1,71 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-import json, os, httpx
+from sqlalchemy.orm.attributes import flag_modified
 
 from . import models, schemas
 
+# --- Helper: Safe Message Appender ---
+async def append_message_to_chat(db: AsyncSession, chat_id: int, role: str, content: str, images: list = None):
+    """Safely appends a message to the chat history and commits it."""
+    result = await db.execute(select(models.Chat).filter(models.Chat.id == chat_id))
+    chat = result.scalars().first()
+    
+    if not chat:
+        return None
+
+    current_history = list(chat.history) if chat.history else []
+    
+    new_message = {
+        "role": role,
+        "content": content,
+        "versions": [content],
+        "current_version": 0,
+        "images": images or []
+    }
+    
+    current_history.append(new_message)
+    chat.history = current_history
+    
+    flag_modified(chat, "history")
+    await db.commit()
+    await db.refresh(chat)
+    return chat
+
+async def add_version_to_last_message(db: AsyncSession, chat_id: int, content: str):
+    """Adds a new version to the LAST message in the history."""
+    result = await db.execute(select(models.Chat).filter(models.Chat.id == chat_id))
+    chat = result.scalars().first()
+    
+    if not chat or not chat.history:
+        return None
+
+    current_history = list(chat.history)
+    last_msg_index = len(current_history) - 1
+    last_msg = current_history[last_msg_index]
+
+    if "versions" not in last_msg:
+        last_msg["versions"] = [last_msg["content"]]
+        last_msg["current_version"] = 0
+    
+    last_msg["versions"].append(content)
+    last_msg["current_version"] = len(last_msg["versions"]) - 1
+    last_msg["content"] = content
+    
+    current_history[last_msg_index] = last_msg
+    chat.history = current_history
+    
+    flag_modified(chat, "history")
+    await db.commit()
+    await db.refresh(chat)
+    return chat
+
 # --- User CRUD Functions ---
 async def get_user_by_username(db: AsyncSession, username: str):
-    """
-    Asynchronously fetches a user, eagerly loading their relationships
-    to prevent async loading issues.
-    """
+    result = await db.execute(select(models.User).filter(models.User.username == username))
+    return result.scalars().first()
+
+async def get_user_by_username_with_relations(db: AsyncSession, username: str):
     result = await db.execute(
         select(models.User)
         .options(
@@ -19,18 +74,9 @@ async def get_user_by_username(db: AsyncSession, username: str):
         )
         .filter(models.User.username == username)
     )
-    user = result.scalars().first()
-    # Manually decode the history for each chat within each main card.
-    if user:
-        for card in user.main_cards:
-            for chat in card.chats:
-                chat.history = json.loads(chat.history_json)
-    return user
+    return result.scalars().first()
 
 async def create_user(db: AsyncSession, user: schemas.UserCreate, hashed_password: str):
-    """
-    Creates a new user in the database.
-    """
     db_user = models.User(username=user.username, hashed_password=hashed_password)
     db.add(db_user)
     await db.commit()
@@ -39,66 +85,51 @@ async def create_user(db: AsyncSession, user: schemas.UserCreate, hashed_passwor
 
 # --- MainCard CRUD Functions ---
 async def get_main_cards(db: AsyncSession, user_id: int):
-    """
-    Fetches all Main Cards for a user, eagerly loading their chats.
-    """
     result = await db.execute(
         select(models.MainCard)
-        .options(selectinload(models.MainCard.chats)) 
+        .options(selectinload(models.MainCard.chats))
         .filter(models.MainCard.owner_id == user_id)
     )
-    main_cards = result.scalars().all()
-    # Manually decode the history for each chat within each main card.
-    for card in main_cards:
-        for chat in card.chats:
-            chat.history = json.loads(chat.history_json)
-    return main_cards
+    return result.scalars().all()
 
 async def get_main_card(db: AsyncSession, main_card_id: int, user_id: int):
-    """
-    Fetches a single Main Card for a user, eagerly loading its chats.
-    """
     result = await db.execute(
         select(models.MainCard)
         .options(selectinload(models.MainCard.chats))
         .filter(models.MainCard.id == main_card_id, models.MainCard.owner_id == user_id)
     )
-    main_card = result.scalars().first()
-    # Also apply the history decoding here for consistency.
-    if main_card:
-        for chat in main_card.chats:
-            chat.history = json.loads(chat.history_json)
-    return main_card
+    return result.scalars().first()
 
 async def create_main_card(db: AsyncSession, main_card: schemas.MainCardCreate, user_id: int):
-    """
-    Creates a new Main Card for a user.
-    """
     db_main_card = models.MainCard(**main_card.model_dump(), owner_id=user_id)
     db.add(db_main_card)
     await db.commit()
     await db.refresh(db_main_card)
     return db_main_card
 
+async def update_main_card(db: AsyncSession, db_main_card: models.MainCard, main_card_update: schemas.MainCardUpdate):
+    update_data = main_card_update.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_main_card, key, value)
+    await db.commit()
+    await db.refresh(db_main_card)
+    return db_main_card
+
+async def delete_main_card(db: AsyncSession, db_main_card: models.MainCard):
+    await db.delete(db_main_card)
+    await db.commit()
+    return {"ok": True}
+
 # --- API Configuration CRUD Functions ---
 async def get_api_configs(db: AsyncSession, user_id: int):
-    """
-    Fetches all API configurations for a user.
-    """
     result = await db.execute(select(models.ApiConfig).filter(models.ApiConfig.owner_id == user_id))
     return result.scalars().all()
 
 async def get_api_config(db: AsyncSession, config_id: int, user_id: int):
-    """
-    Fetches a single API configuration for a user.
-    """
     result = await db.execute(select(models.ApiConfig).filter(models.ApiConfig.id == config_id, models.ApiConfig.owner_id == user_id))
     return result.scalars().first()
 
 async def create_api_config(db: AsyncSession, config: schemas.ApiConfigCreate, user_id: int):
-    """
-    Creates a new API configuration for a user.
-    """
     db_config = models.ApiConfig(**config.model_dump(), owner_id=user_id)
     db.add(db_config)
     await db.commit()
@@ -106,100 +137,41 @@ async def create_api_config(db: AsyncSession, config: schemas.ApiConfigCreate, u
     return db_config
 
 async def update_api_config(db: AsyncSession, db_config: models.ApiConfig, config_update: schemas.ApiConfigUpdate):
-    """
-    Updates an existing API configuration.
-    """
-    for key, value in config_update.model_dump(exclude_unset=True).items():
+    update_data = config_update.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
         setattr(db_config, key, value)
     await db.commit()
     await db.refresh(db_config)
     return db_config
 
 async def delete_api_config(db: AsyncSession, db_config: models.ApiConfig):
-    """
-    Deletes an API configuration.
-    """
     await db.delete(db_config)
     await db.commit()
     return {"ok": True}
 
 # --- Chat CRUD Functions ---
 async def get_chat(db: AsyncSession, chat_id: int, user_id: int):
-    """
-    Fetches a single chat session, ensuring it belongs to the user.
-    """
     result = await db.execute(
         select(models.Chat).join(models.MainCard).filter(models.Chat.id == chat_id, models.MainCard.owner_id == user_id)
     )
-    chat = result.scalars().first()
-    if chat:
-        chat.history = json.loads(chat.history_json)
-    return chat
+    return result.scalars().first()
 
 async def create_chat_in_main_card(db: AsyncSession, main_card_id: int):
-    """
-    Creates a new, empty chat session within a Main Card.
-    """
-    db_chat = models.Chat(main_card_id=main_card_id, history_json='[]')
+    db_chat = models.Chat(main_card_id=main_card_id, history=[])
     db.add(db_chat)
     await db.commit()
     await db.refresh(db_chat)
-    db_chat.history = json.loads(db_chat.history_json)
     return db_chat
 
-async def get_chat_completion(db: AsyncSession, chat: models.Chat, request: schemas.ChatCompletionRequest):
-    """
-    Handles the full logic of getting an LLM response for a chat turn.
-    """
-    # Eagerly load the parent main card to access its properties
-    main_card = await db.get(models.MainCard, chat.main_card_id)
-    
-    # Build the initial history from the Main Card's prompts
-    initial_history = []
-    if main_card.initial_message:
-        initial_history.append({"role": "user", "content": main_card.initial_message})
-    if main_card.example_response:
-        initial_history.append({"role": "assistant", "content": main_card.example_response})
-    
-    # Add the user's new message and build the full message list for the API
-    chat.history.append({"role": "user", "content": request.message})
-    api_messages = [{"role": "system", "content": main_card.description}] if main_card.description else []
-    api_messages.extend(initial_history)
-    api_messages.extend(chat.history)
-    
-    # Determine which API key and URL to use
-    api_key = request.api_key or os.getenv("OPENROUTER_API_KEY")
-    api_url = request.base_url or "https://openrouter.ai/api/v1/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {api_key.strip()}",
-        "Content-Type": "application/json",
-        "HTTP-Referer": "http://localhost:8000",
-        "X-Title": "Area51 Chat App"
-    }
-    
-    # Build the payload, excluding any null values
-    payload = {k: v for k, v in request.model_dump().items() if v is not None and k not in ['api_key', 'base_url', 'message']}
-    payload["model"] = payload.get("model") or "openrouter/auto"
-    payload["messages"] = api_messages
-    
-    # Make the API call and handle potential errors
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(api_url, headers=headers, json=payload, timeout=60.0)
-            response.raise_for_status()
-            response_message = response.json()['choices'][0]['message']['content']
-    except httpx.HTTPStatusError as e:
-        response_message = f"Error: API request failed with status {e.response.status_code}. Response: {e.response.text}"
-    except Exception as e:
-        response_message = f"An unexpected error occurred: {e}"
-
-    # Save the updated history to the database
-    chat.history.append({"role": "assistant", "content": response_message})
-    chat.history_json = json.dumps(chat.history)
+async def update_chat(db: AsyncSession, chat: models.Chat, chat_update: schemas.ChatUpdate):
+    update_data = chat_update.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(chat, key, value)
     await db.commit()
     await db.refresh(chat)
-    
-    # Decode the history again before returning the final state
-    chat.history = json.loads(chat.history_json)
     return chat
 
+async def delete_chat(db: AsyncSession, chat: models.Chat):
+    await db.delete(chat)
+    await db.commit()
+    return {"ok": True}

@@ -12,12 +12,18 @@ from .database import get_db
 
 # --- Security Configuration ---
 
+import os
+
+# --- Security Configuration ---
+
 # This is a secret key used to sign the JWTs.
-# In a real production app, this should be a long, random string
-# and stored securely (e.g., in an environment variable).
-SECRET_KEY = "your-super-secret-key-that-is-long-and-random"
+# It's loaded from an environment variable for security.
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise ValueError("No SECRET_KEY set for JWT signing. Please set the environment variable.")
+
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours
 
 # This object handles our password hashing. We specify that we want to use
 # the "bcrypt" algorithm.
@@ -48,7 +54,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt

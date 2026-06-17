@@ -1,9 +1,13 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-# Define the connection URL for our async SQLite database.
-# The "+aiosqlite" part tells SQLAlchemy to use the async driver we installed.
-DATABASE_URL = "sqlite+aiosqlite:///./app.db"
+import os
+
+# Define the database connection URL.
+# For production, you should set the DATABASE_URL environment variable.
+# Example for PostgreSQL: "postgresql+asyncpg://user:password@host/dbname"
+# For local development, it defaults to an async SQLite database.
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./app.db")
 
 # Create the async engine. This is the entry point to our database.
 engine = create_async_engine(DATABASE_URL)

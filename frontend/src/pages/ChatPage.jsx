@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import MessageBubble from '../components/MessageBubble.jsx';
 import MessageInput from '../components/MessageInput.jsx';
 import SettingsPanel from '../components/settingspanel.jsx';
-import ImageModal from '../components/ImageModal.jsx';
+import ImageModal from '../components/imagemodal.jsx';
 import { useChatSettings } from '../hooks/useChatSettings'; 
 import { useChat } from '../hooks/useChat'; 
 import './ChatPage.css';

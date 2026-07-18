@@ -1,151 +1,95 @@
-/* Existing styles... */
-
-/* Drag & Drop Visuals */
 .message-input-container {
-    position: relative; /* Needed for overlay */
-    transition: border-color 0.2s, background-color 0.2s;
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  background-color: #ffffff;
+  padding: 8px;
+  border: 1px solid #abadb3;
+  width: 100%;
+  box-sizing: border-box;
+  position: relative;
+  transition: border-color 0.2s;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
 }
 
 .message-input-container.dragging {
-    border-color: #646cff; /* Primary accent color */
-    background-color: rgba(100, 108, 255, 0.1);
+    border-color: #3c7fb1;
     border-style: dashed;
+    background-color: #f0f8ff;
+}
+
+.message-textarea {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  background-color: transparent;
+  border: none;
+  color: #333;
+  resize: none;
+  font-family: inherit;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  padding: 4px 0;
+  max-height: 150px;
+  overflow-y: auto;
+}
+.message-textarea:focus {
+    outline: none;
 }
 
 .drag-overlay {
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: rgba(0, 0, 0, 0.6);
-    color: white;
+    top: 0; left: 0; right: 0; bottom: 0;
+    display: flex; align-items: center; justify-content: center;
+    background-color: rgba(255, 255, 255, 0.8);
+    color: #333;
     font-weight: bold;
-    font-size: 1.2rem;
-    border-radius: 12px; /* Match your container radius */
+    font-size: 1.1rem;
     z-index: 10;
     pointer-events: none;
+    border: 2px dashed #3c7fb1;
 }
 
-/* Updated Attachment Preview */
+/* Attachment Preview */
 .attachment-preview {
     position: relative;
     display: inline-block;
-    margin-bottom: 8px;
-    background: #2a2a2a;
-    padding: 6px;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    margin-bottom: 5px;
+    background: #f0f0f0;
+    padding: 4px;
+    border: 1px solid #ccc;
 }
 
 .preview-image {
-    max-height: 200px;
-    border-radius: 4px;
+    max-height: 100px;
     display: block;
 }
 
-/* New: File Card Style (for docs) */
-.file-card {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 16px;
-    background: #333;
-    border-radius: 6px;
-    border: 1px solid #444;
-    min-width: 200px;
-}
-
-.file-icon {
-    font-size: 24px;
-}
-
-.file-info {
-    display: flex;
-    flex-direction: column;
-}
-
-.file-name {
-    font-weight: 500;
-    font-size: 0.9rem;
-    color: #fff;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 180px;
-}
-
-.file-type {
-    font-size: 0.75rem;
-    color: #aaa;
-}
-
-/* Ensure remove button is positioned well */
 .remove-btn {
     position: absolute;
-    top: -8px;
-    right: -8px;
-    background: #ff4444;
+    top: -6px;
+    right: -6px;
+    background: #cc0000;
     color: white;
-    border: none;
-    border-radius: 50%;
-    width: 24px;
-    height: 24px;
+    border: 1px solid #990000;
+    width: 18px;
+    height: 18px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 14px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    font-size: 10px;
+    box-shadow: none;
+    padding: 0;
 }
+.remove-btn:hover { background: #ff0000; }
 
 .attach-btn {
-    background-color: #444;
+    /* Uses default button style */
+    padding: 4px 8px;
 }
 
-.attach-btn:hover {
-    background-color: #555;
-}
-
-.message-input-container {
-  display: flex;
-  align-items: flex-end; 
-  gap: 10px;
-  background-color: #333;
-  padding: 10px;
-  border-radius: 20px;
-  border: 1px solid #444;
-  
-  /* CRITICAL FIXES */
-  width: 100%; 
-  box-sizing: border-box;
-  position: relative; /* For the drag overlay */
-  transition: border-color 0.2s, background-color 0.2s;
-}
-
-
-.message-input-container.dragging {
-    border-color: #646cff;
-    border-style: dashed;
-    background-color: rgba(100, 108, 255, 0.1);
-}
-
-
-.message-textarea {
-  flex: 1;
-  width: 100%; /* Force width */
-  min-width: 0; /* Flexbox trick to prevent overflow */
-  background-color: transparent;
-  border: none;
-  color: white;
-  resize: none; 
-  font-family: inherit;
-  font-size: 1rem;
-  line-height: 1.4;
-  padding: 5px 0;
-  max-height: 200px;
-  overflow-y: auto;
+.send-btn {
+    /* Uses default button style */
+    padding: 4px 12px;
 }

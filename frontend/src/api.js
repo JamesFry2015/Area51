@@ -25,7 +25,7 @@ apiClient.interceptors.request.use(
 );
 
 // Helper function for streaming requests using fetch
-export const streamChatCompletion = async (chatId, payload, onChunk, signal) => {
+apiClient.streamChatCompletion = async (chatId, payload, onChunk, signal) => {
     const token = localStorage.getItem('authToken');
     const baseUrl = BASE_URL.endsWith('/') ? BASE_URL.slice(0, -1) : BASE_URL;
 
@@ -97,5 +97,7 @@ export const streamChatCompletion = async (chatId, payload, onChunk, signal) => 
         }
     }
 };
+
+export const streamChatCompletion = apiClient.streamChatCompletion;
 
 export default apiClient;
